@@ -1,0 +1,408 @@
+---
+title: "User Preferences & Display Settings"
+description: "API endpoints for managing user display preferences, UI settings, and client-specific configurations"
+---
+
+## Overview
+
+The Display Preferences API allows users to customize their viewing experience, including sort order, view types, home screen layout, and client-specific settings. These preferences are stored per user, per client, and per item/view.
+
+## Get Display Preferences
+
+Retrieves display preferences for a specific item or view.
+
+**Endpoint:** `GET /DisplayPreferences/{displayPreferencesId}`
+
+**Authorization:** Required
+
+### Path Parameters
+
+<ParamField path="displayPreferencesId" type="string" required>
+  The ID of the item or view. Can be a GUID or a string identifier (which will be hashed to MD5).
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="userId" type="string (UUID)" optional>
+  The user ID. If not provided, uses the authenticated user.
+</ParamField>
+
+<ParamField query="client" type="string" required>
+  The client application name (e.g., "web", "Android", "iOS")
+</ParamField>
+
+### Response
+
+<ResponseField name="Id" type="string">
+  The display preferences identifier
+</ResponseField>
+
+<ResponseField name="Client" type="string">
+  The client application name
+</ResponseField>
+
+<ResponseField name="ViewType" type="string" optional>
+  The view type (e.g., "Movies", "TvShows", "Music")
+</ResponseField>
+
+<ResponseField name="SortBy" type="string">
+  The field to sort by (e.g., "SortName", "DateCreated", "PremiereDate")
+</ResponseField>
+
+<ResponseField name="SortOrder" type="string">
+  Sort order: "Ascending" or "Descending"
+</ResponseField>
+
+<ResponseField name="IndexBy" type="string" optional>
+  How to index items (e.g., "None", "Premiere", "ProductionYear")
+</ResponseField>
+
+<ResponseField name="RememberIndexing" type="boolean">
+  Whether to remember the indexing preference
+</ResponseField>
+
+<ResponseField name="RememberSorting" type="boolean">
+  Whether to remember the sorting preference
+</ResponseField>
+
+<ResponseField name="ScrollDirection" type="string">
+  Scroll direction: "Horizontal" or "Vertical"
+</ResponseField>
+
+<ResponseField name="ShowBackdrop" type="boolean">
+  Whether to display backdrop images
+</ResponseField>
+
+<ResponseField name="ShowSidebar" type="boolean">
+  Whether to show the sidebar
+</ResponseField>
+
+<ResponseField name="PrimaryImageHeight" type="integer">
+  Height of primary images in pixels
+</ResponseField>
+
+<ResponseField name="PrimaryImageWidth" type="integer">
+  Width of primary images in pixels
+</ResponseField>
+
+<ResponseField name="CustomPrefs" type="object">
+  Dictionary of custom preference key-value pairs
+  
+  <Expandable title="Common custom preferences">
+    <ResponseField name="chromecastVersion" type="string">
+      Chromecast version: "stable" or "unstable"
+    </ResponseField>
+    
+    <ResponseField name="skipForwardLength" type="string">
+      Skip forward length in milliseconds (default: "30000")
+    </ResponseField>
+    
+    <ResponseField name="skipBackLength" type="string">
+      Skip backward length in milliseconds (default: "10000")
+    </ResponseField>
+    
+    <ResponseField name="enableNextVideoInfoOverlay" type="string">
+      Whether to show next video overlay: "true" or "false"
+    </ResponseField>
+    
+    <ResponseField name="dashboardTheme" type="string">
+      Dashboard theme name
+    </ResponseField>
+    
+    <ResponseField name="tvhome" type="string">
+      TV home screen configuration
+    </ResponseField>
+    
+    <ResponseField name="homesection[0-7]" type="string">
+      Home section types: "smalllibrarytiles", "resume", "resumeaudio", "resumebook", "livetv", "nextup", "latestmedia", "none"
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Status Codes
+
+- `200` - Display preferences retrieved successfully
+
+### Example Request
+
+```bash
+curl -X GET "https://your-server.com/DisplayPreferences/f6f3a5e4-5e4f-4e4f-8e4f-5e4f6f3a5e4f?client=web" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_TOKEN"
+```
+
+### Example Response
+
+```json
+{
+  "Id": "f6f3a5e4-5e4f-4e4f-8e4f-5e4f6f3a5e4f",
+  "Client": "web",
+  "ViewType": null,
+  "SortBy": "SortName",
+  "SortOrder": "Ascending",
+  "IndexBy": null,
+  "RememberIndexing": false,
+  "RememberSorting": true,
+  "ScrollDirection": "Horizontal",
+  "ShowBackdrop": true,
+  "ShowSidebar": false,
+  "PrimaryImageHeight": 250,
+  "PrimaryImageWidth": 250,
+  "CustomPrefs": {
+    "chromecastVersion": "stable",
+    "skipForwardLength": "30000",
+    "skipBackLength": "10000",
+    "enableNextVideoInfoOverlay": "true",
+    "dashboardTheme": "dark",
+    "homesection0": "smalllibrarytiles",
+    "homesection1": "resume",
+    "homesection2": "nextup",
+    "homesection3": "latestmedia"
+  }
+}
+```
+
+---
+
+## Update Display Preferences
+
+Updates display preferences for a specific item or view.
+
+**Endpoint:** `POST /DisplayPreferences/{displayPreferencesId}`
+
+**Authorization:** Required
+
+### Path Parameters
+
+<ParamField path="displayPreferencesId" type="string" required>
+  The ID of the item or view
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="userId" type="string (UUID)" optional>
+  The user ID. If not provided, uses the authenticated user.
+</ParamField>
+
+<ParamField query="client" type="string" required>
+  The client application name
+</ParamField>
+
+### Request Body
+
+<ParamField body="ViewType" type="string" optional>
+  The view type
+</ParamField>
+
+<ParamField body="SortBy" type="string">
+  The field to sort by (e.g., "SortName", "DateCreated", "CommunityRating")
+</ParamField>
+
+<ParamField body="SortOrder" type="string">
+  Sort order: "Ascending" or "Descending"
+</ParamField>
+
+<ParamField body="IndexBy" type="string" optional>
+  Indexing method: "None", "Premiere", "ProductionYear", "CommunityRating"
+</ParamField>
+
+<ParamField body="RememberIndexing" type="boolean">
+  Whether to remember indexing preference
+</ParamField>
+
+<ParamField body="RememberSorting" type="boolean">
+  Whether to remember sorting preference
+</ParamField>
+
+<ParamField body="ScrollDirection" type="string">
+  Scroll direction: "Horizontal" or "Vertical"
+</ParamField>
+
+<ParamField body="ShowBackdrop" type="boolean">
+  Whether to show backdrop images
+</ParamField>
+
+<ParamField body="ShowSidebar" type="boolean">
+  Whether to show the sidebar
+</ParamField>
+
+<ParamField body="CustomPrefs" type="object">
+  Dictionary of custom preferences (any key-value pairs)
+</ParamField>
+
+### Response
+
+Returns `204 No Content` on success.
+
+### Status Codes
+
+- `204` - Display preferences updated successfully
+
+### Example Request
+
+```bash
+curl -X POST "https://your-server.com/DisplayPreferences/f6f3a5e4-5e4f-4e4f-8e4f-5e4f6f3a5e4f?client=web" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ViewType": null,
+    "SortBy": "DateCreated",
+    "SortOrder": "Descending",
+    "IndexBy": null,
+    "RememberIndexing": false,
+    "RememberSorting": true,
+    "ScrollDirection": "Horizontal",
+    "ShowBackdrop": true,
+    "ShowSidebar": false,
+    "CustomPrefs": {
+      "chromecastVersion": "stable",
+      "skipForwardLength": "45000",
+      "skipBackLength": "15000",
+      "enableNextVideoInfoOverlay": "true",
+      "dashboardTheme": "light",
+      "homesection0": "resume",
+      "homesection1": "nextup",
+      "homesection2": "latestmedia",
+      "homesection3": "livetv"
+    }
+  }'
+```
+
+---
+
+## Display Preferences Concepts
+
+### Client-Specific Preferences
+
+Display preferences are stored separately for each client application. This allows users to have different settings on different devices:
+
+- **Web client**: Desktop browser settings
+- **Android**: Mobile app settings
+- **iOS**: iOS app settings
+- **Roku**, **Apple TV**, etc.: Device-specific settings
+
+Each client can maintain its own preferences for sorting, view types, and custom settings.
+
+### Item-Specific Preferences
+
+Preferences can be set for individual items or views:
+
+- **Library folders**: Each library (Movies, TV Shows, Music) can have its own display settings
+- **Collections**: Custom collections can have unique view preferences
+- **Special views**: "Latest", "Favorites", etc., can each have different settings
+
+### Home Section Configuration
+
+The home screen layout is controlled through custom preferences with keys `homesection0` through `homesection7`. Available section types:
+
+- **SmallLibraryTiles**: Compact library view
+- **Resume**: Continue watching/listening
+- **ResumeAudio**: Continue listening (audio)
+- **ResumeBook**: Continue reading (books)
+- **LiveTv**: Live TV section
+- **NextUp**: Next episodes to watch
+- **LatestMedia**: Recently added media
+- **None**: Empty section
+
+### Sorting Options
+
+Common sorting fields:
+
+- **SortName**: Alphabetical by name
+- **DateCreated**: Date added to library
+- **DatePlayed**: Last played date
+- **PremiereDate**: Original release date
+- **CommunityRating**: User ratings
+- **CriticRating**: Critic ratings
+- **ProductionYear**: Year produced
+- **PlayCount**: Number of plays
+- **Budget**: Production budget (movies)
+- **Revenue**: Box office revenue (movies)
+- **Runtime**: Duration
+
+### Indexing Options
+
+Indexing creates alphabetical or categorical groupings:
+
+- **None**: No indexing
+- **Premiere**: Group by premiere date
+- **ProductionYear**: Group by year
+- **CommunityRating**: Group by rating range
+
+---
+
+## Common Use Cases
+
+### Setting Skip Lengths
+
+Customize skip forward/backward button behavior:
+
+```json
+{
+  "CustomPrefs": {
+    "skipForwardLength": "30000",  // 30 seconds
+    "skipBackLength": "10000"      // 10 seconds
+  }
+}
+```
+
+### Configuring Home Screen
+
+Set up a custom home screen layout:
+
+```json
+{
+  "CustomPrefs": {
+    "homesection0": "resume",
+    "homesection1": "nextup",
+    "homesection2": "latestmedia",
+    "homesection3": "smalllibrarytiles",
+    "homesection4": "none",
+    "homesection5": "none",
+    "homesection6": "none",
+    "homesection7": "none"
+  }
+}
+```
+
+### Setting Library View Preferences
+
+Configure how a library displays items:
+
+```json
+{
+  "SortBy": "PremiereDate",
+  "SortOrder": "Descending",
+  "IndexBy": "ProductionYear",
+  "RememberSorting": true,
+  "RememberIndexing": true,
+  "ShowBackdrop": true
+}
+```
+
+### Theme Configuration
+
+Set dashboard theme:
+
+```json
+{
+  "CustomPrefs": {
+    "dashboardTheme": "dark"  // or "light"
+  }
+}
+```
+
+---
+
+## Best Practices
+
+1. **Always specify the client**: Different clients may have different capabilities and UI layouts
+
+2. **Use item-specific IDs**: Display preferences should be set for specific libraries or views, not globally
+
+3. **Preserve existing preferences**: When updating, include all current CustomPrefs keys to avoid losing unrelated settings
+
+4. **Validate custom values**: Ensure custom preference values are valid before saving (e.g., numeric strings for skip lengths)
+
+5. **Handle defaults gracefully**: If preferences don't exist, the server returns sensible defaults
+
+6. **Test across clients**: Verify that custom preferences work correctly on all target client applications

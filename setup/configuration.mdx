@@ -1,0 +1,383 @@
+---
+title: Server Configuration
+description: Configure Jellyfin Server settings, options, and environment variables
+---
+
+Jellyfin Server provides extensive configuration options to customize your media server experience. Configuration can be managed through the web interface, configuration files, or environment variables.
+
+## Configuration Files
+
+Jellyfin stores its configuration in XML and JSON files within the data directory:
+
+<CodeGroup>
+```bash Linux
+/var/lib/jellyfin/
+├── config/
+│   ├── system.xml              # Server configuration
+│   ├── network.xml             # Network settings
+│   ├── encoding.xml            # Transcoding settings
+│   └── logging.json            # Logging configuration
+├── data/                       # Database and metadata
+├── cache/                      # Temporary cache files
+└── log/                        # Server logs
+```
+
+```bash Windows
+C:\ProgramData\Jellyfin\Server\
+├── config\
+│   ├── system.xml
+│   ├── network.xml
+│   ├── encoding.xml
+│   └── logging.json
+├── data\
+├── cache\
+└── log\
+```
+
+```bash macOS
+/Users/<username>/.config/jellyfin/
+├── config/
+│   ├── system.xml
+│   ├── network.xml
+│   ├── encoding.xml
+│   └── logging.json
+├── data/
+├── cache/
+└── log/
+```
+</CodeGroup>
+
+## Core Server Settings
+
+### Server Configuration (system.xml)
+
+The main server configuration file contains essential settings:
+
+<Steps>
+  <Step title="Server Name and Culture">
+    Configure the server's display name and localization settings:
+    
+    ```xml
+    <ServerName>My Jellyfin Server</ServerName>
+    <UICulture>en-US</UICulture>
+    <PreferredMetadataLanguage>en</PreferredMetadataLanguage>
+    <MetadataCountryCode>US</MetadataCountryCode>
+    ```
+  </Step>
+
+  <Step title="Metadata Path">
+    Specify where Jellyfin stores metadata:
+    
+    ```xml
+    <MetadataPath>/var/lib/jellyfin/metadata</MetadataPath>
+    ```
+    
+    <Info>If not specified, metadata is stored in the default internal metadata path within the data directory.</Info>
+  </Step>
+
+  <Step title="Library Settings">
+    Configure library scanning and monitoring:
+    
+    ```xml
+    <LibraryMonitorDelay>60</LibraryMonitorDelay>
+    <LibraryUpdateDuration>30</LibraryUpdateDuration>
+    <LibraryScanFanoutConcurrency>0</LibraryScanFanoutConcurrency>
+    <LibraryMetadataRefreshConcurrency>0</LibraryMetadataRefreshConcurrency>
+    ```
+    
+    - `LibraryMonitorDelay`: Seconds to wait after file system change (default: 60)
+    - `LibraryUpdateDuration`: Seconds to wait before executing library changed notification (default: 30)
+    - Concurrency set to `0` uses automatic values based on CPU count
+  </Step>
+
+  <Step title="Playback Settings">
+    Configure playback resume behavior:
+    
+    ```xml
+    <MinResumePct>5</MinResumePct>
+    <MaxResumePct>90</MaxResumePct>
+    <MinResumeDurationSeconds>300</MinResumeDurationSeconds>
+    <MinAudiobookResume>5</MinAudiobookResume>
+    <MaxAudiobookResume>5</MaxAudiobookResume>
+    ```
+  </Step>
+</Steps>
+
+### Cache Configuration
+
+```xml
+<CacheSize>10000</CacheSize>
+<ImageExtractionTimeoutMs>0</ImageExtractionTimeoutMs>
+```
+
+- `CacheSize`: Maximum number of items to cache (default: `ProcessorCount * 100`)
+- `ImageExtractionTimeoutMs`: Timeout for image extraction (0 = no limit)
+
+## Environment Variables
+
+Jellyfin supports various environment variables for configuration:
+
+<Tabs>
+  <Tab title="Data Paths">
+    Control where Jellyfin stores its data:
+    
+    ```bash
+    JELLYFIN_DATA_DIR=/path/to/data
+    JELLYFIN_CONFIG_DIR=/path/to/config
+    JELLYFIN_CACHE_DIR=/path/to/cache
+    JELLYFIN_LOG_DIR=/path/to/logs
+    ```
+  </Tab>
+
+  <Tab title="FFmpeg Configuration">
+    Configure FFmpeg behavior:
+    
+    ```bash
+    # FFmpeg probe settings
+    JELLYFIN_FFmpeg_probesize=1G
+    JELLYFIN_FFmpeg_analyzeduration=200M
+    
+    # Skip FFmpeg validation (not recommended)
+    JELLYFIN_FFmpeg_skipvalidation=false
+    
+    # Performance trade-off for image extraction
+    JELLYFIN_FFmpeg_imgextract_perf_tradeoff=false
+    ```
+    
+    <Warning>These settings are defined in `ConfigurationOptions.cs` and affect transcoding performance and accuracy.</Warning>
+  </Tab>
+
+  <Tab title="Web Client">
+    Control web client hosting:
+    
+    ```bash
+    JELLYFIN_HostWebClient=true
+    JELLYFIN_DefaultRedirect=web/
+    ```
+  </Tab>
+
+  <Tab title="Database">
+    SQLite cache configuration:
+    
+    ```bash
+    JELLYFIN_SqliteCacheSize=20000
+    ```
+  </Tab>
+
+  <Tab title="Logging">
+    Configure logging output:
+    
+    ```bash
+    JELLYFIN_LOG_DIR=/var/log/jellyfin
+    ```
+  </Tab>
+</Tabs>
+
+## Logging Configuration
+
+Jellyfin uses Serilog for structured logging. Configuration is stored in `logging.json`:
+
+```json
+{
+  "Serilog": {
+    "MinimumLevel": {
+      "Default": "Information",
+      "Override": {
+        "Microsoft": "Warning",
+        "System": "Warning"
+      }
+    },
+    "WriteTo": [
+      {
+        "Name": "Console",
+        "Args": {
+          "outputTemplate": "[{Timestamp:HH:mm:ss.fff}] [{Level:u3}] [{ThreadId}] {SourceContext}: {Message:lj}{NewLine}{Exception}"
+        }
+      },
+      {
+        "Name": "Async",
+        "Args": {
+          "configure": [
+            {
+              "Name": "File",
+              "Args": {
+                "path": "%JELLYFIN_LOG_DIR%//log_.log",
+                "rollingInterval": "Day",
+                "retainedFileCountLimit": 3,
+                "rollOnFileSizeLimit": true,
+                "fileSizeLimitBytes": 100000000,
+                "outputTemplate": "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz}] [{Level:u3}] [{ThreadId}] {SourceContext}: {Message}{NewLine}{Exception}"
+              }
+            }
+          ]
+        }
+      }
+    ],
+    "Enrich": ["FromLogContext", "WithThreadId"]
+  }
+}
+```
+
+### Log Levels
+
+<Tabs>
+  <Tab title="Verbose">
+    Most detailed logging for debugging:
+    ```json
+    "Default": "Verbose"
+    ```
+  </Tab>
+
+  <Tab title="Debug">
+    Detailed information for troubleshooting:
+    ```json
+    "Default": "Debug"
+    ```
+  </Tab>
+
+  <Tab title="Information">
+    Normal operational messages (default):
+    ```json
+    "Default": "Information"
+    ```
+  </Tab>
+
+  <Tab title="Warning">
+    Warnings and non-critical issues:
+    ```json
+    "Default": "Warning"
+    ```
+  </Tab>
+
+  <Tab title="Error">
+    Error messages only:
+    ```json
+    "Default": "Error"
+    ```
+  </Tab>
+</Tabs>
+
+### Activity Log Retention
+
+Configure how long activity logs are retained:
+
+```xml
+<ActivityLogRetentionDays>30</ActivityLogRetentionDays>
+```
+
+<Tip>Set to null or omit to keep logs indefinitely.</Tip>
+
+## Performance Tuning
+
+### Session Management
+
+```xml
+<InactiveSessionThreshold>0</InactiveSessionThreshold>
+```
+
+Set the threshold in minutes for closing inactive sessions. Set to `0` to disable.
+
+### Slow Response Monitoring
+
+```xml
+<EnableSlowResponseWarning>true</EnableSlowResponseWarning>
+<SlowResponseThresholdMs>500</SlowResponseThresholdMs>
+```
+
+Log warnings for requests that take longer than the specified threshold.
+
+## Security Settings
+
+### Quick Connect
+
+```xml
+<QuickConnectAvailable>true</QuickConnectAvailable>
+```
+
+Enable or disable Quick Connect for easy device pairing.
+
+### Client Log Upload
+
+```xml
+<AllowClientLogUpload>true</AllowClientLogUpload>
+```
+
+Allow clients to upload logs to the server for troubleshooting.
+
+### Legacy Authorization
+
+```xml
+<EnableLegacyAuthorization>false</EnableLegacyAuthorization>
+```
+
+<Warning>Only enable legacy authorization if required for compatibility with older clients.</Warning>
+
+## CORS Configuration
+
+Configure Cross-Origin Resource Sharing:
+
+```xml
+<CorsHosts>
+  <string>*</string>
+</CorsHosts>
+```
+
+<Info>Default allows all origins. For production, specify allowed domains explicitly.</Info>
+
+## Path Substitution
+
+Map paths for different environments (e.g., Docker, network shares):
+
+```xml
+<PathSubstitutions>
+  <PathSubstitution>
+    <From>/media/old-path</From>
+    <To>/media/new-path</To>
+  </PathSubstitution>
+</PathSubstitutions>
+```
+
+## Best Practices
+
+<Steps>
+  <Step title="Backup Configuration">
+    Regularly back up your configuration directory:
+    
+    ```bash
+    tar -czf jellyfin-config-backup.tar.gz /var/lib/jellyfin/config/
+    ```
+  </Step>
+
+  <Step title="Use Environment Variables for Containers">
+    When running in Docker, prefer environment variables over editing config files:
+    
+    ```yaml
+    environment:
+      - JELLYFIN_DATA_DIR=/config
+      - JELLYFIN_LOG_DIR=/config/log
+    ```
+  </Step>
+
+  <Step title="Monitor Performance">
+    Enable metrics for monitoring:
+    
+    ```xml
+    <EnableMetrics>true</EnableMetrics>
+    ```
+  </Step>
+
+  <Step title="Keep Logs Manageable">
+    Configure log retention and size limits to prevent disk space issues.
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Network Setup" icon="network-wired" href="./networking">
+    Configure networking, ports, and remote access
+  </Card>
+  <Card title="Transcoding" icon="film" href="./transcoding">
+    Set up media transcoding and codec options
+  </Card>
+</CardGroup>

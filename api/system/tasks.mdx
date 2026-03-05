@@ -1,0 +1,519 @@
+---
+title: "Scheduled Tasks"
+description: "API endpoints for managing scheduled background tasks in Jellyfin"
+---
+
+## Overview
+
+The Scheduled Tasks API provides endpoints to manage background tasks in Jellyfin. These tasks handle operations like library scans, metadata refresh, log cleanup, and other maintenance operations. Administrators can list tasks, start/stop them manually, and configure their triggers.
+
+## Get All Tasks
+
+Retrieves a list of all scheduled tasks.
+
+### Endpoint
+
+```
+GET /ScheduledTasks
+```
+
+### Authentication
+
+Required. User must have elevated permissions (administrator).
+
+### Query Parameters
+
+<ParamField query="isHidden" type="boolean">
+  Optional filter for hidden or visible tasks
+</ParamField>
+
+<ParamField query="isEnabled" type="boolean">
+  Optional filter for enabled or disabled tasks
+</ParamField>
+
+### Response
+
+Returns an array of `TaskInfo` objects, sorted by task name.
+
+<ResponseField name="Id" type="string">
+  Unique identifier for the task
+</ResponseField>
+
+<ResponseField name="Name" type="string">
+  Display name of the task
+</ResponseField>
+
+<ResponseField name="Description" type="string">
+  Description of what the task does
+</ResponseField>
+
+<ResponseField name="Category" type="string">
+  Category grouping for the task (e.g., "Library", "Maintenance")
+</ResponseField>
+
+<ResponseField name="State" type="string">
+  Current state of the task (Idle, Running, Cancelling)
+</ResponseField>
+
+<ResponseField name="CurrentProgressPercentage" type="number">
+  Current progress percentage if the task is running (0-100)
+</ResponseField>
+
+<ResponseField name="IsHidden" type="boolean">
+  Whether the task is hidden from the UI
+</ResponseField>
+
+<ResponseField name="Key" type="string">
+  Task key identifier
+</ResponseField>
+
+<ResponseField name="LastExecutionResult" type="object">
+  Information about the last execution of this task
+  
+  <Expandable title="LastExecutionResult Fields">
+    <ResponseField name="StartTimeUtc" type="string">
+      When the task started (ISO 8601 format)
+    </ResponseField>
+    
+    <ResponseField name="EndTimeUtc" type="string">
+      When the task completed (ISO 8601 format)
+    </ResponseField>
+    
+    <ResponseField name="Status" type="string">
+      Result status (Completed, Failed, Cancelled, Aborted)
+    </ResponseField>
+    
+    <ResponseField name="Name" type="string">
+      Task name
+    </ResponseField>
+    
+    <ResponseField name="Key" type="string">
+      Task key
+    </ResponseField>
+    
+    <ResponseField name="Id" type="string">
+      Task ID
+    </ResponseField>
+    
+    <ResponseField name="ErrorMessage" type="string">
+      Error message if the task failed
+    </ResponseField>
+    
+    <ResponseField name="LongErrorMessage" type="string">
+      Detailed error message if available
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="Triggers" type="array">
+  Array of triggers that schedule when this task runs
+  
+  <Expandable title="Trigger Fields">
+    <ResponseField name="Type" type="string">
+      Trigger type: "Daily", "Weekly", "Interval", "Startup", "SystemEvent"
+    </ResponseField>
+    
+    <ResponseField name="TimeOfDayTicks" type="integer">
+      Time of day in ticks (for Daily/Weekly triggers)
+    </ResponseField>
+    
+    <ResponseField name="IntervalTicks" type="integer">
+      Interval in ticks (for Interval triggers)
+    </ResponseField>
+    
+    <ResponseField name="DayOfWeek" type="string">
+      Day of week (for Weekly triggers): "Sunday", "Monday", etc.
+    </ResponseField>
+    
+    <ResponseField name="MaxRuntimeTicks" type="integer">
+      Maximum runtime before the task is automatically cancelled
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X GET "https://your-jellyfin-server/ScheduledTasks" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+### Example Request with Filters
+
+```bash
+curl -X GET "https://your-jellyfin-server/ScheduledTasks?isHidden=false&isEnabled=true" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+### Example Response
+
+```json
+[
+  {
+    "Id": "a1b2c3d4e5f6g7h8i9j0",
+    "Name": "Scan Media Library",
+    "Description": "Scans media libraries for new and updated files",
+    "Category": "Library",
+    "State": "Idle",
+    "CurrentProgressPercentage": null,
+    "IsHidden": false,
+    "Key": "RefreshLibrary",
+    "LastExecutionResult": {
+      "StartTimeUtc": "2024-03-05T02:00:00.000Z",
+      "EndTimeUtc": "2024-03-05T02:15:30.000Z",
+      "Status": "Completed",
+      "Name": "Scan Media Library",
+      "Key": "RefreshLibrary",
+      "Id": "a1b2c3d4e5f6g7h8i9j0"
+    },
+    "Triggers": [
+      {
+        "Type": "Daily",
+        "TimeOfDayTicks": 72000000000,
+        "MaxRuntimeTicks": 36000000000
+      }
+    ]
+  },
+  {
+    "Id": "b2c3d4e5f6g7h8i9j0k1",
+    "Name": "Clean Cache Directory",
+    "Description": "Removes old files from the cache directory",
+    "Category": "Maintenance",
+    "State": "Idle",
+    "CurrentProgressPercentage": null,
+    "IsHidden": false,
+    "Key": "CleanCache",
+    "LastExecutionResult": {
+      "StartTimeUtc": "2024-03-04T03:00:00.000Z",
+      "EndTimeUtc": "2024-03-04T03:01:15.000Z",
+      "Status": "Completed",
+      "Name": "Clean Cache Directory",
+      "Key": "CleanCache",
+      "Id": "b2c3d4e5f6g7h8i9j0k1"
+    },
+    "Triggers": [
+      {
+        "Type": "Weekly",
+        "TimeOfDayTicks": 108000000000,
+        "DayOfWeek": "Sunday"
+      }
+    ]
+  }
+]
+```
+
+### Response Codes
+
+- `200` - Tasks retrieved successfully
+- `403` - User does not have permission
+
+---
+
+## Get Task by ID
+
+Retrieves information about a specific scheduled task.
+
+### Endpoint
+
+```
+GET /ScheduledTasks/{taskId}
+```
+
+### Authentication
+
+Required. User must have elevated permissions (administrator).
+
+### Path Parameters
+
+<ParamField path="taskId" type="string" required>
+  The unique identifier of the task
+</ParamField>
+
+### Response
+
+Returns a `TaskInfo` object for the specified task.
+
+### Example Request
+
+```bash
+curl -X GET "https://your-jellyfin-server/ScheduledTasks/a1b2c3d4e5f6g7h8i9j0" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+### Example Response
+
+```json
+{
+  "Id": "a1b2c3d4e5f6g7h8i9j0",
+  "Name": "Scan Media Library",
+  "Description": "Scans media libraries for new and updated files",
+  "Category": "Library",
+  "State": "Idle",
+  "CurrentProgressPercentage": null,
+  "IsHidden": false,
+  "Key": "RefreshLibrary",
+  "LastExecutionResult": {
+    "StartTimeUtc": "2024-03-05T02:00:00.000Z",
+    "EndTimeUtc": "2024-03-05T02:15:30.000Z",
+    "Status": "Completed",
+    "Name": "Scan Media Library",
+    "Key": "RefreshLibrary",
+    "Id": "a1b2c3d4e5f6g7h8i9j0"
+  },
+  "Triggers": [
+    {
+      "Type": "Daily",
+      "TimeOfDayTicks": 72000000000
+    }
+  ]
+}
+```
+
+### Response Codes
+
+- `200` - Task retrieved successfully
+- `404` - Task not found
+- `403` - User does not have permission
+
+---
+
+## Start Task
+
+Manually starts a scheduled task.
+
+### Endpoint
+
+```
+POST /ScheduledTasks/Running/{taskId}
+```
+
+### Authentication
+
+Required. User must have elevated permissions (administrator).
+
+### Path Parameters
+
+<ParamField path="taskId" type="string" required>
+  The unique identifier of the task to start
+</ParamField>
+
+### Response
+
+Returns no content. The task will begin executing.
+
+### Example Request
+
+```bash
+curl -X POST "https://your-jellyfin-server/ScheduledTasks/Running/a1b2c3d4e5f6g7h8i9j0" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+### Response Codes
+
+- `204` - Task started successfully
+- `404` - Task not found
+- `403` - User does not have permission
+
+---
+
+## Stop Task
+
+Stops a currently running task.
+
+### Endpoint
+
+```
+DELETE /ScheduledTasks/Running/{taskId}
+```
+
+### Authentication
+
+Required. User must have elevated permissions (administrator).
+
+### Path Parameters
+
+<ParamField path="taskId" type="string" required>
+  The unique identifier of the task to stop
+</ParamField>
+
+### Response
+
+Returns no content. The task will be cancelled.
+
+### Example Request
+
+```bash
+curl -X DELETE "https://your-jellyfin-server/ScheduledTasks/Running/a1b2c3d4e5f6g7h8i9j0" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+### Response Codes
+
+- `204` - Task stopped successfully
+- `404` - Task not found
+- `403` - User does not have permission
+
+---
+
+## Update Task Triggers
+
+Updates the triggers for a scheduled task.
+
+### Endpoint
+
+```
+POST /ScheduledTasks/{taskId}/Triggers
+```
+
+### Authentication
+
+Required. User must have elevated permissions (administrator).
+
+### Path Parameters
+
+<ParamField path="taskId" type="string" required>
+  The unique identifier of the task
+</ParamField>
+
+### Request Body
+
+An array of `TaskTriggerInfo` objects.
+
+<ParamField body="Type" type="string" required>
+  Trigger type: "Daily", "Weekly", "Interval", "Startup", "SystemEvent"
+</ParamField>
+
+<ParamField body="TimeOfDayTicks" type="integer">
+  Time of day in ticks (for Daily/Weekly triggers). 1 hour = 36000000000 ticks
+</ParamField>
+
+<ParamField body="IntervalTicks" type="integer">
+  Interval in ticks (for Interval triggers)
+</ParamField>
+
+<ParamField body="DayOfWeek" type="string">
+  Day of week (for Weekly triggers): "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
+</ParamField>
+
+<ParamField body="MaxRuntimeTicks" type="integer">
+  Maximum runtime in ticks before auto-cancellation
+</ParamField>
+
+### Example Request - Daily at 2 AM
+
+```bash
+curl -X POST "https://your-jellyfin-server/ScheduledTasks/a1b2c3d4e5f6g7h8i9j0/Triggers" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '[
+    {
+      "Type": "Daily",
+      "TimeOfDayTicks": 72000000000,
+      "MaxRuntimeTicks": 36000000000
+    }
+  ]'
+```
+
+### Example Request - Weekly on Sunday at 3 AM
+
+```bash
+curl -X POST "https://your-jellyfin-server/ScheduledTasks/b2c3d4e5f6g7h8i9j0k1/Triggers" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '[
+    {
+      "Type": "Weekly",
+      "TimeOfDayTicks": 108000000000,
+      "DayOfWeek": "Sunday"
+    }
+  ]'
+```
+
+### Example Request - Every 6 Hours
+
+```bash
+curl -X POST "https://your-jellyfin-server/ScheduledTasks/c3d4e5f6g7h8i9j0k1l2/Triggers" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '[
+    {
+      "Type": "Interval",
+      "IntervalTicks": 216000000000
+    }
+  ]'
+```
+
+### Example Request - Multiple Triggers
+
+```bash
+curl -X POST "https://your-jellyfin-server/ScheduledTasks/d4e5f6g7h8i9j0k1l2m3/Triggers" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '[
+    {
+      "Type": "Daily",
+      "TimeOfDayTicks": 72000000000
+    },
+    {
+      "Type": "Startup"
+    }
+  ]'
+```
+
+### Response Codes
+
+- `204` - Task triggers updated successfully
+- `404` - Task not found
+- `403` - User does not have permission
+
+---
+
+## Common Task Types
+
+Here are some common scheduled tasks you'll find in Jellyfin:
+
+### Library Tasks
+- **Scan Media Library** - Scans for new and updated media files
+- **Refresh Metadata** - Updates metadata for all library items
+- **Extract Chapter Images** - Extracts images for video chapters
+- **Generate Trickplay Images** - Creates preview thumbnails for videos
+
+### Maintenance Tasks
+- **Clean Cache Directory** - Removes old cached files
+- **Clean Transcoding Directory** - Cleans up temporary transcoding files
+- **Clean Activity Log** - Removes old activity log entries
+- **Optimize Database** - Optimizes the database for better performance
+
+### Update Tasks
+- **Check for Plugin Updates** - Checks if any plugins have updates available
+- **Check for Server Updates** - Checks if a new server version is available
+
+---
+
+## Time Conversion Reference
+
+Ticks are used to represent time intervals in the .NET framework. Here are common conversions:
+
+- 1 second = 10,000,000 ticks
+- 1 minute = 600,000,000 ticks
+- 1 hour = 36,000,000,000 ticks
+- 1 day = 864,000,000,000 ticks
+
+### Common Time Values
+
+- 12:00 AM (midnight) = 0 ticks
+- 1:00 AM = 36,000,000,000 ticks
+- 2:00 AM = 72,000,000,000 ticks
+- 3:00 AM = 108,000,000,000 ticks
+- 12:00 PM (noon) = 432,000,000,000 ticks
+- 6:00 PM = 648,000,000,000 ticks
+
+---
+
+## Notes
+
+- Tasks can have multiple triggers (e.g., run daily at 2 AM AND on startup)
+- Some tasks may impact server performance while running
+- Tasks respect the MaxRuntimeTicks setting and will be cancelled if they exceed it
+- Use the `isHidden` parameter to filter out internal system tasks from the UI
+- Stopping a task may take a few moments as it needs to finish its current operation gracefully

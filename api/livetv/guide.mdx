@@ -1,0 +1,1100 @@
+---
+title: 'Live TV Program Guide'
+description: 'Endpoints for retrieving Electronic Program Guide (EPG) data and program information'
+---
+
+## Get Live TV Info
+
+Retrieves information about available live TV services.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://your-server/LiveTv/Info" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  GET
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/Info`
+</ParamField>
+
+### Authentication
+
+Requires `LiveTvAccess` policy authorization.
+
+### Response
+
+<ResponseField name="LiveTvInfo" type="object">
+  Live TV service information
+  <Expandable title="Properties">
+    <ResponseField name="Services" type="array">
+      Available live TV services
+    </ResponseField>
+    <ResponseField name="IsEnabled" type="boolean">
+      Whether live TV is enabled
+    </ResponseField>
+    <ResponseField name="EnabledUsers" type="array">
+      Users with live TV access
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Status Codes
+
+- `200` - Available live TV services returned successfully
+- `401` - Unauthorized
+- `403` - Forbidden
+
+---
+
+## Get Programs (GET)
+
+Retrieves live TV program guide information (EPG data) using query parameters.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://your-server/LiveTv/Programs?channelIds=CHANNEL_ID&limit=50" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  GET
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/Programs`
+</ParamField>
+
+### Authentication
+
+Requires `LiveTvAccess` policy authorization.
+
+### Query Parameters
+
+<ParamField query="channelIds" type="array" required>
+  The channels to return guide information for (comma-delimited GUIDs)
+</ParamField>
+
+<ParamField query="userId" type="string (Guid)">
+  Filter by user ID
+</ParamField>
+
+<ParamField query="minStartDate" type="string (DateTime)">
+  The minimum premiere start date
+</ParamField>
+
+<ParamField query="hasAired" type="boolean">
+  Filter by programs that have completed airing, or not
+</ParamField>
+
+<ParamField query="isAiring" type="boolean">
+  Filter by programs that are currently airing, or not
+</ParamField>
+
+<ParamField query="maxStartDate" type="string (DateTime)">
+  The maximum premiere start date
+</ParamField>
+
+<ParamField query="minEndDate" type="string (DateTime)">
+  The minimum premiere end date
+</ParamField>
+
+<ParamField query="maxEndDate" type="string (DateTime)">
+  The maximum premiere end date
+</ParamField>
+
+<ParamField query="isMovie" type="boolean">
+  Filter for movies
+</ParamField>
+
+<ParamField query="isSeries" type="boolean">
+  Filter for series
+</ParamField>
+
+<ParamField query="isNews" type="boolean">
+  Filter for news
+</ParamField>
+
+<ParamField query="isKids" type="boolean">
+  Filter for kids content
+</ParamField>
+
+<ParamField query="isSports" type="boolean">
+  Filter for sports
+</ParamField>
+
+<ParamField query="startIndex" type="integer">
+  The record index to start at. All items with a lower index will be dropped from the results
+</ParamField>
+
+<ParamField query="limit" type="integer">
+  The maximum number of records to return
+</ParamField>
+
+<ParamField query="sortBy" type="array">
+  Sort orders (comma-delimited): Name, StartDate
+</ParamField>
+
+<ParamField query="sortOrder" type="array">
+  Sort order: Ascending or Descending (comma-delimited)
+</ParamField>
+
+<ParamField query="genres" type="array">
+  The genres to return guide information for (pipe-delimited)
+</ParamField>
+
+<ParamField query="genreIds" type="array">
+  The genre IDs to return guide information for (comma-delimited GUIDs)
+</ParamField>
+
+<ParamField query="enableImages" type="boolean">
+  Include image information in output
+</ParamField>
+
+<ParamField query="imageTypeLimit" type="integer">
+  The max number of images to return, per image type
+</ParamField>
+
+<ParamField query="enableImageTypes" type="array">
+  The image types to include in the output (comma-delimited)
+</ParamField>
+
+<ParamField query="enableUserData" type="boolean">
+  Include user data
+</ParamField>
+
+<ParamField query="seriesTimerId" type="string">
+  Filter by series timer ID
+</ParamField>
+
+<ParamField query="librarySeriesId" type="string (Guid)">
+  Filter by library series ID
+</ParamField>
+
+<ParamField query="fields" type="array">
+  Additional fields of information to return in the output (comma-delimited)
+</ParamField>
+
+<ParamField query="enableTotalRecordCount" type="boolean" default="true">
+  Retrieve total record count
+</ParamField>
+
+### Response
+
+<ResponseField name="Items" type="array">
+  Array of program items
+  <Expandable title="Program Item Properties">
+    <ResponseField name="Id" type="string (Guid)">
+      Unique identifier for the program
+    </ResponseField>
+    <ResponseField name="Name" type="string">
+      Program name
+    </ResponseField>
+    <ResponseField name="ChannelId" type="string">
+      Channel ID
+    </ResponseField>
+    <ResponseField name="StartDate" type="string (DateTime)">
+      Program start date and time
+    </ResponseField>
+    <ResponseField name="EndDate" type="string (DateTime)">
+      Program end date and time
+    </ResponseField>
+    <ResponseField name="Overview" type="string">
+      Program description
+    </ResponseField>
+    <ResponseField name="IsMovie" type="boolean">
+      Whether the program is a movie
+    </ResponseField>
+    <ResponseField name="IsSeries" type="boolean">
+      Whether the program is a series
+    </ResponseField>
+    <ResponseField name="IsSports" type="boolean">
+      Whether the program is sports
+    </ResponseField>
+    <ResponseField name="IsNews" type="boolean">
+      Whether the program is news
+    </ResponseField>
+    <ResponseField name="IsKids" type="boolean">
+      Whether the program is for kids
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="TotalRecordCount" type="integer">
+  Total number of programs
+</ResponseField>
+
+<ResponseField name="StartIndex" type="integer">
+  Starting index of the returned results
+</ResponseField>
+
+### Status Codes
+
+- `200` - Live TV EPG data returned successfully
+- `401` - Unauthorized
+- `403` - Forbidden
+
+---
+
+## Get Programs (POST)
+
+Retrieves live TV program guide information using a POST request with a JSON body. This is useful for complex queries that exceed URL length limits.
+
+<CodeGroup>
+```bash cURL
+curl -X POST "https://your-server/LiveTv/Programs" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "channelIds": ["channel-id-1", "channel-id-2"],
+    "limit": 50,
+    "isAiring": true,
+    "enableImages": true
+  }'
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  POST
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/Programs`
+</ParamField>
+
+### Authentication
+
+Requires `LiveTvAccess` policy authorization.
+
+### Request Body
+
+<ParamField body="channelIds" type="array">
+  The channels to return guide information for (array of GUIDs)
+</ParamField>
+
+<ParamField body="userId" type="string (Guid)">
+  Filter by user ID
+</ParamField>
+
+<ParamField body="minStartDate" type="string (DateTime)">
+  The minimum premiere start date
+</ParamField>
+
+<ParamField body="hasAired" type="boolean">
+  Filter by programs that have completed airing
+</ParamField>
+
+<ParamField body="isAiring" type="boolean">
+  Filter by programs that are currently airing
+</ParamField>
+
+<ParamField body="maxStartDate" type="string (DateTime)">
+  The maximum premiere start date
+</ParamField>
+
+<ParamField body="minEndDate" type="string (DateTime)">
+  The minimum premiere end date
+</ParamField>
+
+<ParamField body="maxEndDate" type="string (DateTime)">
+  The maximum premiere end date
+</ParamField>
+
+<ParamField body="isMovie" type="boolean">
+  Filter for movies
+</ParamField>
+
+<ParamField body="isSeries" type="boolean">
+  Filter for series
+</ParamField>
+
+<ParamField body="isNews" type="boolean">
+  Filter for news
+</ParamField>
+
+<ParamField body="isKids" type="boolean">
+  Filter for kids content
+</ParamField>
+
+<ParamField body="isSports" type="boolean">
+  Filter for sports
+</ParamField>
+
+<ParamField body="startIndex" type="integer">
+  The record index to start at
+</ParamField>
+
+<ParamField body="limit" type="integer">
+  The maximum number of records to return
+</ParamField>
+
+<ParamField body="sortBy" type="array">
+  Sort orders array
+</ParamField>
+
+<ParamField body="sortOrder" type="array">
+  Sort order array
+</ParamField>
+
+<ParamField body="genres" type="array">
+  The genres to return guide information for
+</ParamField>
+
+<ParamField body="genreIds" type="array">
+  The genre IDs to return guide information for
+</ParamField>
+
+<ParamField body="enableImages" type="boolean">
+  Include image information in output
+</ParamField>
+
+<ParamField body="imageTypeLimit" type="integer">
+  The max number of images to return, per image type
+</ParamField>
+
+<ParamField body="enableImageTypes" type="array">
+  The image types to include in the output
+</ParamField>
+
+<ParamField body="enableUserData" type="boolean">
+  Include user data
+</ParamField>
+
+<ParamField body="seriesTimerId" type="string">
+  Filter by series timer ID
+</ParamField>
+
+<ParamField body="librarySeriesId" type="string (Guid)">
+  Filter by library series ID
+</ParamField>
+
+<ParamField body="fields" type="array">
+  Additional fields of information to return
+</ParamField>
+
+<ParamField body="enableTotalRecordCount" type="boolean">
+  Retrieve total record count
+</ParamField>
+
+### Response
+
+Same as GET /LiveTv/Programs response.
+
+### Status Codes
+
+- `200` - Live TV EPG data returned successfully
+- `401` - Unauthorized
+- `403` - Forbidden
+- `400` - Bad request
+
+---
+
+## Get Recommended Programs
+
+Retrieves recommended live TV programs based on user preferences.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://your-server/LiveTv/Programs/Recommended?limit=20&isAiring=true" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  GET
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/Programs/Recommended`
+</ParamField>
+
+### Authentication
+
+Requires `LiveTvAccess` policy authorization.
+
+### Query Parameters
+
+<ParamField query="userId" type="string (Guid)">
+  Filter by user ID
+</ParamField>
+
+<ParamField query="startIndex" type="integer">
+  The record index to start at
+</ParamField>
+
+<ParamField query="limit" type="integer">
+  The maximum number of records to return
+</ParamField>
+
+<ParamField query="isAiring" type="boolean">
+  Filter by programs that are currently airing
+</ParamField>
+
+<ParamField query="hasAired" type="boolean">
+  Filter by programs that have completed airing
+</ParamField>
+
+<ParamField query="isSeries" type="boolean">
+  Filter for series
+</ParamField>
+
+<ParamField query="isMovie" type="boolean">
+  Filter for movies
+</ParamField>
+
+<ParamField query="isNews" type="boolean">
+  Filter for news
+</ParamField>
+
+<ParamField query="isKids" type="boolean">
+  Filter for kids content
+</ParamField>
+
+<ParamField query="isSports" type="boolean">
+  Filter for sports
+</ParamField>
+
+<ParamField query="enableImages" type="boolean">
+  Include image information in output
+</ParamField>
+
+<ParamField query="imageTypeLimit" type="integer">
+  The max number of images to return, per image type
+</ParamField>
+
+<ParamField query="enableImageTypes" type="array">
+  The image types to include in the output (comma-delimited)
+</ParamField>
+
+<ParamField query="genreIds" type="array">
+  The genres to return guide information for (comma-delimited GUIDs)
+</ParamField>
+
+<ParamField query="fields" type="array">
+  Additional fields of information to return (comma-delimited)
+</ParamField>
+
+<ParamField query="enableUserData" type="boolean">
+  Include user data
+</ParamField>
+
+<ParamField query="enableTotalRecordCount" type="boolean" default="true">
+  Retrieve total record count
+</ParamField>
+
+### Response
+
+<ResponseField name="Items" type="array">
+  Array of recommended program items
+</ResponseField>
+
+<ResponseField name="TotalRecordCount" type="integer">
+  Total number of recommended programs
+</ResponseField>
+
+<ResponseField name="StartIndex" type="integer">
+  Starting index of the returned results
+</ResponseField>
+
+### Status Codes
+
+- `200` - Recommended EPG data returned successfully
+- `401` - Unauthorized
+- `403` - Forbidden
+
+---
+
+## Get Program
+
+Retrieves detailed information about a specific program.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://your-server/LiveTv/Programs/{programId}" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  GET
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/Programs/{programId}`
+</ParamField>
+
+### Authentication
+
+Requires `LiveTvAccess` policy authorization.
+
+### Path Parameters
+
+<ParamField path="programId" type="string" required>
+  The program ID
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="userId" type="string (Guid)">
+  Attach user data for this user
+</ParamField>
+
+### Response
+
+<ResponseField name="BaseItemDto" type="object">
+  Detailed program information including metadata, schedule, and images
+</ResponseField>
+
+### Status Codes
+
+- `200` - Program returned successfully
+- `401` - Unauthorized
+- `403` - Forbidden
+
+---
+
+## Get Guide Info
+
+Retrieves information about the program guide configuration.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://your-server/LiveTv/GuideInfo" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  GET
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/GuideInfo`
+</ParamField>
+
+### Authentication
+
+Requires `LiveTvAccess` policy authorization.
+
+### Response
+
+<ResponseField name="GuideInfo" type="object">
+  Guide configuration information
+  <Expandable title="Properties">
+    <ResponseField name="StartDate" type="string (DateTime)">
+      Guide data start date
+    </ResponseField>
+    <ResponseField name="EndDate" type="string (DateTime)">
+      Guide data end date
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Status Codes
+
+- `200` - Guide info returned successfully
+- `401` - Unauthorized
+- `403` - Forbidden
+
+---
+
+## Get Live Stream File
+
+Gets a live TV channel stream file.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://your-server/LiveTv/LiveStreamFiles/{streamId}/stream.ts" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  --output stream.ts
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  GET
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/LiveStreamFiles/{streamId}/stream.{container}`
+</ParamField>
+
+### Path Parameters
+
+<ParamField path="streamId" type="string" required>
+  The stream ID
+</ParamField>
+
+<ParamField path="container" type="string" required>
+  Container type (e.g., ts, mp4)
+</ParamField>
+
+### Response
+
+Returns a video file stream.
+
+### Status Codes
+
+- `200` - Stream returned successfully
+- `404` - Stream not found
+
+---
+
+## Tuner and Provider Management
+
+### Reset Tuner
+
+Resets a TV tuner.
+
+<CodeGroup>
+```bash cURL
+curl -X POST "https://your-server/LiveTv/Tuners/{tunerId}/Reset" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+</CodeGroup>
+
+#### Endpoint
+
+<ParamField path="method" type="string" required>
+  POST
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/Tuners/{tunerId}/Reset`
+</ParamField>
+
+#### Authentication
+
+Requires `LiveTvManagement` policy authorization.
+
+#### Path Parameters
+
+<ParamField path="tunerId" type="string" required>
+  The tuner ID
+</ParamField>
+
+#### Status Codes
+
+- `204` - Tuner reset successfully
+- `401` - Unauthorized
+- `403` - Forbidden
+
+---
+
+### Add Tuner Host
+
+Adds a new tuner host to the system.
+
+<CodeGroup>
+```bash cURL
+curl -X POST "https://your-server/LiveTv/TunerHosts" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "Type": "hdhomerun",
+    "Url": "http://192.168.1.100"
+  }'
+```
+</CodeGroup>
+
+#### Endpoint
+
+<ParamField path="method" type="string" required>
+  POST
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/TunerHosts`
+</ParamField>
+
+#### Authentication
+
+Requires `LiveTvManagement` policy authorization.
+
+#### Request Body
+
+<ParamField body="Type" type="string" required>
+  Tuner host type (e.g., hdhomerun, m3u)
+</ParamField>
+
+<ParamField body="Url" type="string" required>
+  Tuner host URL
+</ParamField>
+
+#### Response
+
+<ResponseField name="TunerHostInfo" type="object">
+  Created tuner host information
+</ResponseField>
+
+#### Status Codes
+
+- `200` - Tuner host created successfully
+- `401` - Unauthorized
+- `403` - Forbidden
+- `400` - Bad request
+
+---
+
+### Delete Tuner Host
+
+Deletes a tuner host.
+
+<CodeGroup>
+```bash cURL
+curl -X DELETE "https://your-server/LiveTv/TunerHosts?id=TUNER_HOST_ID" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+</CodeGroup>
+
+#### Endpoint
+
+<ParamField path="method" type="string" required>
+  DELETE
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/TunerHosts`
+</ParamField>
+
+#### Authentication
+
+Requires `LiveTvManagement` policy authorization.
+
+#### Query Parameters
+
+<ParamField query="id" type="string">
+  Tuner host ID to delete
+</ParamField>
+
+#### Status Codes
+
+- `204` - Tuner host deleted successfully
+- `401` - Unauthorized
+- `403` - Forbidden
+
+---
+
+### Get Tuner Host Types
+
+Retrieves available tuner host types.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://your-server/LiveTv/TunerHosts/Types" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+</CodeGroup>
+
+#### Endpoint
+
+<ParamField path="method" type="string" required>
+  GET
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/TunerHosts/Types`
+</ParamField>
+
+#### Authentication
+
+Requires `LiveTvAccess` policy authorization.
+
+#### Response
+
+Array of tuner host type name-ID pairs.
+
+#### Status Codes
+
+- `200` - Tuner host types returned successfully
+- `401` - Unauthorized
+- `403` - Forbidden
+
+---
+
+### Discover Tuners
+
+Discovers available tuners on the network.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://your-server/LiveTv/Tuners/Discover?newDevicesOnly=true" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+</CodeGroup>
+
+#### Endpoint
+
+<ParamField path="method" type="string" required>
+  GET
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/Tuners/Discover`
+</ParamField>
+
+#### Authentication
+
+Requires `LiveTvManagement` policy authorization.
+
+#### Query Parameters
+
+<ParamField query="newDevicesOnly" type="boolean" default="false">
+  Only discover new tuners not already configured
+</ParamField>
+
+#### Response
+
+Async enumerable of discovered tuner host information.
+
+#### Status Codes
+
+- `200` - Tuners returned successfully
+- `401` - Unauthorized
+- `403` - Forbidden
+
+---
+
+## Listing Providers
+
+### Get Default Listing Provider
+
+Retrieves default listings provider information.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://your-server/LiveTv/ListingProviders/Default" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+</CodeGroup>
+
+#### Endpoint
+
+<ParamField path="method" type="string" required>
+  GET
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/ListingProviders/Default`
+</ParamField>
+
+#### Authentication
+
+Requires `LiveTvAccess` policy authorization.
+
+#### Status Codes
+
+- `200` - Default listings provider info returned successfully
+
+---
+
+### Add Listing Provider
+
+Adds a new listings provider (e.g., Schedules Direct).
+
+<CodeGroup>
+```bash cURL
+curl -X POST "https://your-server/LiveTv/ListingProviders?pw=password" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "Type": "SchedulesDirect",
+    "Username": "your-username",
+    "ListingsId": "lineup-id"
+  }'
+```
+</CodeGroup>
+
+#### Endpoint
+
+<ParamField path="method" type="string" required>
+  POST
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/ListingProviders`
+</ParamField>
+
+#### Authentication
+
+Requires `LiveTvManagement` policy authorization.
+
+#### Query Parameters
+
+<ParamField query="pw" type="string">
+  Password (will be hashed)
+</ParamField>
+
+<ParamField query="validateListings" type="boolean" default="false">
+  Validate listings
+</ParamField>
+
+<ParamField query="validateLogin" type="boolean" default="false">
+  Validate login credentials
+</ParamField>
+
+#### Request Body
+
+ListingsProviderInfo object.
+
+#### Response
+
+<ResponseField name="ListingsProviderInfo" type="object">
+  Created listings provider information
+</ResponseField>
+
+#### Status Codes
+
+- `200` - Listing provider created successfully
+- `401` - Unauthorized
+- `403` - Forbidden
+- `400` - Bad request
+
+---
+
+### Delete Listing Provider
+
+Deletes a listings provider.
+
+<CodeGroup>
+```bash cURL
+curl -X DELETE "https://your-server/LiveTv/ListingProviders?id=PROVIDER_ID" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+</CodeGroup>
+
+#### Endpoint
+
+<ParamField path="method" type="string" required>
+  DELETE
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/ListingProviders`
+</ParamField>
+
+#### Authentication
+
+Requires `LiveTvManagement` policy authorization.
+
+#### Query Parameters
+
+<ParamField query="id" type="string">
+  Listing provider ID to delete
+</ParamField>
+
+#### Status Codes
+
+- `204` - Listing provider deleted successfully
+- `401` - Unauthorized
+- `403` - Forbidden
+
+---
+
+### Get Lineups
+
+Retrieves available lineups for a listings provider.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://your-server/LiveTv/ListingProviders/Lineups?id=PROVIDER_ID" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+</CodeGroup>
+
+#### Endpoint
+
+<ParamField path="method" type="string" required>
+  GET
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/ListingProviders/Lineups`
+</ParamField>
+
+#### Authentication
+
+Requires `LiveTvAccess` policy authorization.
+
+#### Query Parameters
+
+<ParamField query="id" type="string">
+  Provider ID
+</ParamField>
+
+<ParamField query="type" type="string">
+  Provider type
+</ParamField>
+
+<ParamField query="location" type="string">
+  Location (e.g., zip code)
+</ParamField>
+
+<ParamField query="country" type="string">
+  Country code
+</ParamField>
+
+#### Response
+
+Array of available lineups (name-ID pairs).
+
+#### Status Codes
+
+- `200` - Available lineups returned successfully
+- `401` - Unauthorized
+- `403` - Forbidden
+
+---
+
+### Get Schedules Direct Countries
+
+Retrieves available countries for Schedules Direct.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://your-server/LiveTv/ListingProviders/SchedulesDirect/Countries" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+</CodeGroup>
+
+#### Endpoint
+
+<ParamField path="method" type="string" required>
+  GET
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/ListingProviders/SchedulesDirect/Countries`
+</ParamField>
+
+#### Authentication
+
+Requires `LiveTvAccess` policy authorization.
+
+#### Response
+
+JSON file containing available countries.
+
+#### Status Codes
+
+- `200` - Countries returned successfully
+- `401` - Unauthorized
+- `403` - Forbidden

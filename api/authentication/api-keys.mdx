@@ -1,0 +1,543 @@
+---
+title: "API Keys"
+description: "Create, list, and manage API keys for programmatic access to Jellyfin Server"
+---
+
+## Overview
+
+API keys provide persistent authentication tokens for programmatic access to Jellyfin Server without requiring user credentials. They are designed for server-to-server communication, automation scripts, and third-party integrations.
+
+<Warning>
+  API keys have **administrator-level privileges** and bypass normal user authentication. Store them securely and never expose them in client-side code, public repositories, or logs.
+</Warning>
+
+## When to Use API Keys
+
+API keys are ideal for:
+
+- **Background Services** - Long-running processes that need persistent access
+- **Server Automation** - Scripts for maintenance, backups, or administration
+- **Third-Party Integrations** - External services connecting to Jellyfin
+- **CI/CD Pipelines** - Automated testing or deployment workflows
+- **Monitoring Tools** - Health checks and metrics collection
+
+<Info>
+  For user-facing applications, use [user authentication](/api/authentication/overview#user-authentication) instead of API keys to maintain proper permission boundaries.
+</Info>
+
+## List API Keys
+
+Retrieve all existing API keys.
+
+<CodeGroup>
+```bash cURL
+curl "http://localhost:8096/Auth/Keys" \
+  -H "Authorization: MediaBrowser Token=\"YOUR_ADMIN_TOKEN\""
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:8096/Auth/Keys', {
+  headers: {
+    'Authorization': 'MediaBrowser Token="YOUR_ADMIN_TOKEN"'
+  }
+});
+
+const result = await response.json();
+console.log('API Keys:', result.Items);
+```
+
+```python Python
+import requests
+
+headers = {
+    'Authorization': 'MediaBrowser Token="YOUR_ADMIN_TOKEN"'
+}
+
+response = requests.get(
+    'http://localhost:8096/Auth/Keys',
+    headers=headers
+)
+
+result = response.json()
+for key in result['Items']:
+    print(f"App: {key['AppName']}, Token: {key['AccessToken']}")
+```
+</CodeGroup>
+
+### Endpoint Details
+
+<ParamField path="/Auth/Keys" type="GET">
+  Retrieve all API keys
+</ParamField>
+
+<ParamField header="Authorization" type="string" required>
+  Must include a token with administrator privileges
+</ParamField>
+
+**Authorization Required:** `RequiresElevation` (Administrator)
+
+### Response
+
+<ResponseField name="Items" type="array">
+  Array of API key objects
+  <Expandable title="AuthenticationInfo">
+    <ResponseField name="Id" type="integer">
+      Internal database ID
+    </ResponseField>
+    <ResponseField name="AccessToken" type="string">
+      The API key token used for authentication
+    </ResponseField>
+    <ResponseField name="DeviceId" type="string">
+      Device identifier (typically server ID for API keys)
+    </ResponseField>
+    <ResponseField name="AppName" type="string">
+      Name of the application using this API key
+    </ResponseField>
+    <ResponseField name="AppVersion" type="string">
+      Application version
+    </ResponseField>
+    <ResponseField name="DeviceName" type="string">
+      Device name (typically server name for API keys)
+    </ResponseField>
+    <ResponseField name="UserId" type="string">
+      User ID (empty for API keys)
+    </ResponseField>
+    <ResponseField name="IsActive" type="boolean">
+      Whether the API key is currently active
+    </ResponseField>
+    <ResponseField name="DateCreated" type="string">
+      ISO 8601 timestamp when the key was created
+    </ResponseField>
+    <ResponseField name="DateRevoked" type="string" nullable>
+      ISO 8601 timestamp when the key was revoked (null if active)
+    </ResponseField>
+    <ResponseField name="DateLastActivity" type="string">
+      ISO 8601 timestamp of last use
+    </ResponseField>
+    <ResponseField name="UserName" type="string">
+      Username (empty for API keys)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="TotalRecordCount" type="integer">
+  Total number of API keys
+</ResponseField>
+
+<ResponseField name="StartIndex" type="integer">
+  Starting index (always 0)
+</ResponseField>
+
+### Response Example
+
+```json
+{
+  "Items": [
+    {
+      "Id": 1,
+      "AccessToken": "a1b2c3d4e5f6g7h8i9j0",
+      "DeviceId": "abc123def456",
+      "AppName": "Backup Service",
+      "AppVersion": "10.8.13",
+      "DeviceName": "Jellyfin Server",
+      "UserId": "00000000-0000-0000-0000-000000000000",
+      "IsActive": true,
+      "DateCreated": "2024-01-15T10:30:00.0000000Z",
+      "DateRevoked": null,
+      "DateLastActivity": "2024-03-05T08:15:22.0000000Z",
+      "UserName": null
+    },
+    {
+      "Id": 2,
+      "AccessToken": "z9y8x7w6v5u4t3s2r1q0",
+      "DeviceId": "abc123def456",
+      "AppName": "Monitoring Tool",
+      "AppVersion": "10.8.13",
+      "DeviceName": "Jellyfin Server",
+      "UserId": "00000000-0000-0000-0000-000000000000",
+      "IsActive": true,
+      "DateCreated": "2024-02-20T14:45:00.0000000Z",
+      "DateRevoked": null,
+      "DateLastActivity": "2024-03-05T09:30:10.0000000Z",
+      "UserName": null
+    }
+  ],
+  "TotalRecordCount": 2,
+  "StartIndex": 0
+}
+```
+
+## Create API Key
+
+Create a new API key for an application.
+
+<CodeGroup>
+```bash cURL
+curl -X POST "http://localhost:8096/Auth/Keys?app=MyBackupService" \
+  -H "Authorization: MediaBrowser Token=\"YOUR_ADMIN_TOKEN\""
+```
+
+```javascript JavaScript
+const appName = 'MyBackupService';
+const response = await fetch(
+  `http://localhost:8096/Auth/Keys?app=${encodeURIComponent(appName)}`,
+  {
+    method: 'POST',
+    headers: {
+      'Authorization': 'MediaBrowser Token="YOUR_ADMIN_TOKEN"'
+    }
+  }
+);
+
+if (response.ok) {
+  console.log('API key created successfully');
+  // List keys to retrieve the new token
+}
+```
+
+```python Python
+import requests
+
+headers = {
+    'Authorization': 'MediaBrowser Token="YOUR_ADMIN_TOKEN"'
+}
+
+params = {
+    'app': 'MyBackupService'
+}
+
+response = requests.post(
+    'http://localhost:8096/Auth/Keys',
+    headers=headers,
+    params=params
+)
+
+if response.status_code == 204:
+    print('API key created successfully')
+    # List keys to retrieve the new token
+```
+</CodeGroup>
+
+### Endpoint Details
+
+<ParamField path="/Auth/Keys" type="POST">
+  Create a new API key
+</ParamField>
+
+<ParamField query="app" type="string" required>
+  Name of the application that will use this API key. Choose a descriptive name that identifies the purpose or service.
+</ParamField>
+
+<ParamField header="Authorization" type="string" required>
+  Must include a token with administrator privileges
+</ParamField>
+
+**Authorization Required:** `RequiresElevation` (Administrator)
+
+**Response:** `204 No Content`
+
+<Info>
+  The API key token is **not returned** in the response. After creating a key, call [List API Keys](#list-api-keys) to retrieve the newly generated token.
+</Info>
+
+### Complete Example: Create and Retrieve
+
+```bash
+# Step 1: Create the API key
+curl -X POST "http://localhost:8096/Auth/Keys?app=MonitoringTool" \
+  -H "Authorization: MediaBrowser Token=\"YOUR_ADMIN_TOKEN\""
+
+# Step 2: List all keys to get the new token
+curl "http://localhost:8096/Auth/Keys" \
+  -H "Authorization: MediaBrowser Token=\"YOUR_ADMIN_TOKEN\"" \
+  | jq '.Items[] | select(.AppName == "MonitoringTool") | .AccessToken'
+```
+
+## Revoke API Key
+
+Delete an API key to permanently revoke access.
+
+<CodeGroup>
+```bash cURL
+curl -X DELETE "http://localhost:8096/Auth/Keys/a1b2c3d4e5f6g7h8i9j0" \
+  -H "Authorization: MediaBrowser Token=\"YOUR_ADMIN_TOKEN\""
+```
+
+```javascript JavaScript
+const apiKeyToRevoke = 'a1b2c3d4e5f6g7h8i9j0';
+const response = await fetch(
+  `http://localhost:8096/Auth/Keys/${apiKeyToRevoke}`,
+  {
+    method: 'DELETE',
+    headers: {
+      'Authorization': 'MediaBrowser Token="YOUR_ADMIN_TOKEN"'
+    }
+  }
+);
+
+if (response.ok) {
+  console.log('API key revoked successfully');
+}
+```
+
+```python Python
+import requests
+
+api_key_to_revoke = 'a1b2c3d4e5f6g7h8i9j0'
+
+headers = {
+    'Authorization': 'MediaBrowser Token="YOUR_ADMIN_TOKEN"'
+}
+
+response = requests.delete(
+    f'http://localhost:8096/Auth/Keys/{api_key_to_revoke}',
+    headers=headers
+)
+
+if response.status_code == 204:
+    print('API key revoked successfully')
+```
+</CodeGroup>
+
+### Endpoint Details
+
+<ParamField path="/Auth/Keys/{key}" type="DELETE">
+  Revoke an API key
+</ParamField>
+
+<ParamField path="key" type="string" required>
+  The access token to revoke (the API key itself)
+</ParamField>
+
+<ParamField header="Authorization" type="string" required>
+  Must include a token with administrator privileges
+</ParamField>
+
+**Authorization Required:** `RequiresElevation` (Administrator)
+
+**Response:** `204 No Content`
+
+<Warning>
+  Revoking an API key is **permanent** and cannot be undone. Any services using the revoked key will immediately lose access.
+</Warning>
+
+## Using API Keys
+
+Once created, API keys work exactly like user access tokens and can be included in requests using any of these methods:
+
+### Method 1: Authorization Header (Recommended)
+
+```bash
+curl "http://localhost:8096/System/Info" \
+  -H "Authorization: MediaBrowser Token=\"YOUR_API_KEY\""
+```
+
+You can optionally include client information:
+
+```bash
+curl "http://localhost:8096/System/Info" \
+  -H "Authorization: MediaBrowser Client=\"MyApp\", Device=\"MyServer\", DeviceId=\"unique-id\", Version=\"1.0.0\", Token=\"YOUR_API_KEY\""
+```
+
+### Method 2: Query Parameter
+
+```bash
+curl "http://localhost:8096/System/Info?ApiKey=YOUR_API_KEY"
+```
+
+### Method 3: Legacy Headers (if enabled)
+
+```bash
+# X-Emby-Token header
+curl "http://localhost:8096/System/Info" \
+  -H "X-Emby-Token: YOUR_API_KEY"
+
+# X-MediaBrowser-Token header
+curl "http://localhost:8096/System/Info" \
+  -H "X-MediaBrowser-Token: YOUR_API_KEY"
+```
+
+## API Key Permissions
+
+API keys automatically have **administrator-level privileges**, granting access to:
+
+- All user data and content
+- Server configuration endpoints
+- User management operations
+- System administration functions
+- Library management
+- Plugin installation and configuration
+
+There is no way to create limited-scope API keys. For applications that need restricted access, use user authentication with appropriate user permissions instead.
+
+## Security Best Practices
+
+### Secure Storage
+
+<AccordionGroup>
+  <Accordion title="Environment Variables">
+    Store API keys in environment variables, never in source code:
+    
+    ```bash
+    export JELLYFIN_API_KEY="your-api-key-here"
+    ```
+    
+    ```python
+    import os
+    api_key = os.environ.get('JELLYFIN_API_KEY')
+    ```
+  </Accordion>
+  
+  <Accordion title="Secret Management">
+    Use secret management services for production:
+    
+    - AWS Secrets Manager
+    - Azure Key Vault
+    - HashiCorp Vault
+    - Kubernetes Secrets
+  </Accordion>
+  
+  <Accordion title="Configuration Files">
+    If storing in config files:
+    
+    - Use restrictive file permissions (chmod 600)
+    - Exclude from version control (.gitignore)
+    - Encrypt sensitive configuration files
+  </Accordion>
+</AccordionGroup>
+
+### Access Control
+
+1. **Descriptive Names** - Use clear, descriptive app names that identify the purpose
+2. **Minimal Keys** - Create only as many keys as necessary
+3. **Regular Audits** - Periodically review and revoke unused keys
+4. **Rotation Policy** - Consider rotating keys on a schedule (quarterly/annually)
+5. **Activity Monitoring** - Monitor `DateLastActivity` to identify inactive keys
+
+### Network Security
+
+1. **HTTPS Only** - Always use HTTPS in production to encrypt API keys in transit
+2. **Firewall Rules** - Restrict API access to known IP addresses when possible
+3. **VPN/Private Network** - Consider using VPN or private networks for sensitive integrations
+4. **Rate Limiting** - Implement rate limiting on your services using API keys
+
+## Troubleshooting
+
+### Authentication Fails with API Key
+
+**Problem:** Receiving 401 Unauthorized when using an API key
+
+**Solutions:**
+- Verify the API key hasn't been revoked (check `DateRevoked` field)
+- Ensure the API key is being sent correctly in the Authorization header or query parameter
+- Check that legacy authorization is enabled if using X-Emby-Token headers
+- Confirm the API key string is complete and not truncated
+
+### Cannot Create API Key
+
+**Problem:** Receiving 403 Forbidden when creating an API key
+
+**Solutions:**
+- Verify you're authenticated with an administrator account
+- Check that your user has the "IsAdministrator" permission
+- Ensure the server has completed initial setup
+
+### API Key Not Listed After Creation
+
+**Problem:** New API key doesn't appear in the list
+
+**Solutions:**
+- Wait a moment and try listing again (database write may be async)
+- Verify the creation request returned 204 No Content
+- Check server logs for any database errors
+- Ensure you have permission to view all API keys
+
+## Example: Complete Integration
+
+Here's a complete example of managing API keys in a Python application:
+
+```python
+import requests
+import os
+
+class JellyfinAPIKeyManager:
+    def __init__(self, base_url, admin_token):
+        self.base_url = base_url.rstrip('/')
+        self.headers = {
+            'Authorization': f'MediaBrowser Token="{admin_token}"'
+        }
+    
+    def list_keys(self):
+        """List all API keys"""
+        response = requests.get(
+            f'{self.base_url}/Auth/Keys',
+            headers=self.headers
+        )
+        response.raise_for_status()
+        return response.json()['Items']
+    
+    def create_key(self, app_name):
+        """Create a new API key"""
+        response = requests.post(
+            f'{self.base_url}/Auth/Keys',
+            headers=self.headers,
+            params={'app': app_name}
+        )
+        response.raise_for_status()
+        
+        # Retrieve the newly created key
+        keys = self.list_keys()
+        for key in keys:
+            if key['AppName'] == app_name:
+                return key['AccessToken']
+        
+        raise Exception('Failed to retrieve newly created API key')
+    
+    def revoke_key(self, access_token):
+        """Revoke an API key"""
+        response = requests.delete(
+            f'{self.base_url}/Auth/Keys/{access_token}',
+            headers=self.headers
+        )
+        response.raise_for_status()
+    
+    def get_key_by_app(self, app_name):
+        """Find API key by application name"""
+        keys = self.list_keys()
+        for key in keys:
+            if key['AppName'] == app_name:
+                return key
+        return None
+
+# Usage
+manager = JellyfinAPIKeyManager(
+    base_url='http://localhost:8096',
+    admin_token=os.environ['JELLYFIN_ADMIN_TOKEN']
+)
+
+# Create a new key
+api_key = manager.create_key('MyBackupService')
+print(f'Created API key: {api_key}')
+
+# Store securely
+os.environ['BACKUP_SERVICE_API_KEY'] = api_key
+
+# List all keys
+keys = manager.list_keys()
+for key in keys:
+    print(f"{key['AppName']}: {key['AccessToken']}")
+
+# Revoke when no longer needed
+manager.revoke_key(api_key)
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication Overview" icon="shield-halved" href="/api/authentication/overview">
+    Learn about user authentication and token management
+  </Card>
+  <Card title="System Endpoints" icon="server" href="/api/system/overview">
+    Use API keys to access system information
+  </Card>
+</CardGroup>

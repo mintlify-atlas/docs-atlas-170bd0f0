@@ -1,0 +1,623 @@
+---
+title: Users & Authentication
+description: User management, authentication methods, and permission policies in Jellyfin
+---
+
+Jellyfin provides a comprehensive user management system with flexible authentication providers, granular permissions, and access control policies. The system supports multiple authentication methods and allows administrators to control what users can access and do.
+
+## User System Overview
+
+The user system is built around the `UserManager` service and the `User` entity:
+
+```csharp Jellyfin.Server.Implementations/Users/UserManager.cs
+public partial class UserManager : IUserManager
+{
+    private readonly IDbContextFactory<JellyfinDbContext> _dbProvider;
+    private readonly IReadOnlyCollection<IAuthenticationProvider> _authenticationProviders;
+    private readonly IReadOnlyCollection<IPasswordResetProvider> _passwordResetProviders;
+    private readonly IDictionary<Guid, User> _users;
+    
+    public IEnumerable<User> Users => _users.Values;
+    public IEnumerable<Guid> UsersIds => _users.Keys;
+    
+    public event EventHandler<GenericEventArgs<User>>? OnUserUpdated;
+}
+```
+
+<Info>
+  Users are cached in memory for fast access and synchronized with the database for persistence.
+</Info>
+
+## User Entity
+
+The `User` entity contains all user-related data:
+
+```csharp Jellyfin.Database.Implementations/Entities/User.cs
+public class User : IHasPermissions, IHasConcurrencyToken
+{
+    // Identity
+    public Guid Id { get; set; }
+    public string Username { get; set; }
+    public string? Password { get; set; }
+    
+    // Authentication
+    public string AuthenticationProviderId { get; set; }
+    public string PasswordResetProviderId { get; set; }
+    public bool MustUpdatePassword { get; set; }
+    
+    // Security
+    public int InvalidLoginAttemptCount { get; set; }
+    public int? LoginAttemptsBeforeLockout { get; set; }
+    public int MaxActiveSessions { get; set; }
+    
+    // Activity tracking
+    public DateTime? LastActivityDate { get; set; }
+    public DateTime? LastLoginDate { get; set; }
+    
+    // Preferences
+    public bool EnableLocalPassword { get; set; }
+    public bool EnableUserPreferenceAccess { get; set; }
+    public bool EnableAutoLogin { get; set; }
+    
+    // Playback preferences
+    public SubtitlePlaybackMode SubtitleMode { get; set; }
+    public string? AudioLanguagePreference { get; set; }
+    public string? SubtitleLanguagePreference { get; set; }
+    public bool RememberAudioSelections { get; set; }
+    public bool RememberSubtitleSelections { get; set; }
+    public bool EnableNextEpisodeAutoPlay { get; set; }
+    
+    // Parental controls
+    public int? MaxParentalRatingScore { get; set; }
+    
+    // Relationships
+    public virtual ICollection<Permission> Permissions { get; private set; }
+    public virtual ICollection<Preference> Preferences { get; private set; }
+    public virtual ICollection<AccessSchedule> AccessSchedules { get; private set; }
+    public virtual ImageInfo? ProfileImage { get; set; }
+}
+```
+
+## User Management Operations
+
+### Creating Users
+
+```csharp Interface
+public interface IUserManager
+{
+    Task<User> CreateUserAsync(string name);
+}
+```
+
+<CodeGroup>
+```csharp Implementation
+internal async Task<User> CreateUserInternalAsync(
+    string name, 
+    JellyfinDbContext dbContext)
+{
+    // Validate username
+    ThrowIfInvalidUsername(name);
+    
+    // Create user with defaults
+    var newUser = new User(
+        name,
+        _defaultAuthenticationProvider.GetType().Name,
+        _defaultPasswordResetProvider.GetType().Name)
+    {
+        EnableUserPreferenceAccess = true,
+        RememberAudioSelections = true,
+        RememberSubtitleSelections = true,
+        EnableNextEpisodeAutoPlay = true,
+        HidePlayedInLatest = true
+    };
+    
+    // Apply default permissions
+    foreach (var defaultPermission in GetDefaultPermissions())
+    {
+        newUser.Permissions.Add(defaultPermission);
+    }
+    
+    dbContext.Users.Add(newUser);
+    await dbContext.SaveChangesAsync().ConfigureAwait(false);
+    
+    return newUser;
+}
+```
+
+```bash API Example
+curl -X POST "http://localhost:8096/Users/New" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"Name": "newuser", "Password": "secure_password"}'
+```
+</CodeGroup>
+
+### Updating Users
+
+```csharp
+public async Task UpdateUserAsync(User user)
+{
+    var dbContext = await _dbProvider.CreateDbContextAsync()
+        .ConfigureAwait(false);
+    
+    await using (dbContext.ConfigureAwait(false))
+    {
+        await UpdateUserInternalAsync(dbContext, user)
+            .ConfigureAwait(false);
+    }
+    
+    var eventArgs = new UserUpdatedEventArgs(user);
+    await _eventManager.PublishAsync(eventArgs).ConfigureAwait(false);
+    OnUserUpdated?.Invoke(this, eventArgs);
+}
+```
+
+### Deleting Users
+
+```csharp
+public async Task DeleteUserAsync(Guid userId)
+{
+    var user = GetUserById(userId) 
+        ?? throw new ResourceNotFoundException();
+    
+    var dbContext = await _dbProvider.CreateDbContextAsync()
+        .ConfigureAwait(false);
+    
+    await using (dbContext.ConfigureAwait(false))
+    {
+        dbContext.Users.Remove(user);
+        await dbContext.SaveChangesAsync().ConfigureAwait(false);
+    }
+    
+    _users.Remove(userId);
+}
+```
+
+## Authentication Providers
+
+Jellyfin supports pluggable authentication providers:
+
+```csharp MediaBrowser.Controller/Authentication/IAuthenticationProvider.cs
+public interface IAuthenticationProvider
+{
+    string Name { get; }
+    bool IsEnabled { get; }
+    
+    Task<ProviderAuthenticationResult> Authenticate(
+        string username, 
+        string password);
+    
+    Task ChangePassword(User user, string newPassword);
+}
+```
+
+### Built-in Providers
+
+<Tabs>
+  <Tab title="Default Provider">
+    The `DefaultAuthenticationProvider` handles local password authentication:
+    
+    ```csharp
+    public class DefaultAuthenticationProvider : IAuthenticationProvider
+    {
+        public async Task<ProviderAuthenticationResult> Authenticate(
+            string username, 
+            string password)
+        {
+            var user = _userManager.GetUserByName(username);
+            
+            if (user == null)
+                throw new AuthenticationException("Invalid username or password");
+            
+            // Verify password hash
+            var calculatedHash = _cryptoProvider.ComputeHash(
+                user.Password.Id,
+                Encoding.UTF8.GetBytes(password),
+                user.Password.Salt);
+            
+            if (!calculatedHash.SequenceEqual(user.Password.Hash))
+            {
+                throw new AuthenticationException("Invalid username or password");
+            }
+            
+            return new ProviderAuthenticationResult
+            {
+                Username = user.Username
+            };
+        }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Invalid Provider">
+    The `InvalidAuthProvider` is assigned to disabled users:
+    
+    ```csharp
+    public class InvalidAuthProvider : IAuthenticationProvider
+    {
+        public Task<ProviderAuthenticationResult> Authenticate(
+            string username, 
+            string password)
+        {
+            throw new AuthenticationException(
+                "User account has been disabled.");
+        }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="LDAP Plugin">
+    LDAP authentication can be added via plugin:
+    
+    - Authenticate against Active Directory or OpenLDAP
+    - Map LDAP groups to Jellyfin permissions
+    - Support for LDAPS (secure LDAP)
+    - User provisioning from LDAP directory
+  </Tab>
+</Tabs>
+
+<Info>
+  Custom authentication providers can be created by implementing `IAuthenticationProvider` in a plugin.
+</Info>
+
+## Authentication Flow
+
+The authentication process follows these steps:
+
+<Steps>
+  <Step title="User Credentials">
+    Client submits username and password to `/Users/AuthenticateByName` endpoint.
+  </Step>
+  
+  <Step title="User Lookup">
+    UserManager retrieves the user by username:
+    
+    ```csharp
+    public User? GetUserByName(string name)
+    {
+        return _users.Values.FirstOrDefault(u => 
+            string.Equals(u.Username, name, StringComparison.OrdinalIgnoreCase));
+    }
+    ```
+  </Step>
+  
+  <Step title="Provider Selection">
+    The appropriate authentication provider is selected based on the user's `AuthenticationProviderId`.
+  </Step>
+  
+  <Step title="Authentication">
+    The provider validates the credentials:
+    
+    ```csharp
+    public async Task<User?> AuthenticateUser(
+        string username, 
+        string password, 
+        string remoteEndPoint, 
+        bool isUserSession)
+    {
+        var provider = GetAuthenticationProvider(user);
+        var result = await provider.Authenticate(username, password)
+            .ConfigureAwait(false);
+        
+        // Update last login date
+        user.LastLoginDate = DateTime.UtcNow;
+        user.InvalidLoginAttemptCount = 0;
+        
+        await UpdateUserAsync(user).ConfigureAwait(false);
+        
+        return user;
+    }
+    ```
+  </Step>
+  
+  <Step title="Token Generation">
+    A session token is generated and returned to the client for subsequent requests.
+  </Step>
+  
+  <Step title="Session Tracking">
+    The `SessionManager` tracks the active session with device information and capabilities.
+  </Step>
+</Steps>
+
+## User Policies
+
+User policies control what users can access and do:
+
+```csharp MediaBrowser.Model/Users/UserPolicy.cs
+public class UserPolicy
+{
+    // Administrative
+    public bool IsAdministrator { get; set; }
+    public bool IsHidden { get; set; }
+    public bool IsDisabled { get; set; }
+    
+    // Content management
+    public bool EnableCollectionManagement { get; set; }
+    public bool EnableSubtitleManagement { get; set; }
+    public bool EnableLyricManagement { get; set; }
+    
+    // Content deletion
+    public bool EnableContentDeletion { get; set; }
+    public string[] EnableContentDeletionFromFolders { get; set; }
+    
+    // Playback
+    public bool EnableMediaPlayback { get; set; }
+    public bool EnableAudioPlaybackTranscoding { get; set; }
+    public bool EnableVideoPlaybackTranscoding { get; set; }
+    public bool EnablePlaybackRemuxing { get; set; }
+    public bool ForceRemoteSourceTranscoding { get; set; }
+    
+    // Transcoding
+    public bool EnableSyncTranscoding { get; set; }
+    public bool EnableMediaConversion { get; set; }
+    
+    // Live TV
+    public bool EnableLiveTvManagement { get; set; }
+    public bool EnableLiveTvAccess { get; set; }
+    
+    // Sharing and downloads
+    public bool EnablePublicSharing { get; set; }
+    public bool EnableContentDownloading { get; set; }
+    public bool EnableRemoteAccess { get; set; }
+    
+    // Device control
+    public bool EnableSharedDeviceControl { get; set; }
+    public bool EnableAllDevices { get; set; }
+    public string[] EnabledDevices { get; set; }
+    
+    // Folder access
+    public bool EnableAllFolders { get; set; }
+    public Guid[] EnabledFolders { get; set; }
+    
+    // Parental controls
+    public int? MaxParentalRating { get; set; }
+    public UnratedItem[] BlockUnratedItems { get; set; }
+    public string[] BlockedTags { get; set; }
+    public string[] AllowedTags { get; set; }
+    
+    // Session limits
+    public int LoginAttemptsBeforeLockout { get; set; }
+    public int MaxActiveSessions { get; set; }
+    
+    // Access scheduling
+    public AccessSchedule[] AccessSchedules { get; set; }
+    
+    // Sync Play
+    public SyncPlayUserAccessType SyncPlayAccess { get; set; }
+}
+```
+
+### Policy Examples
+
+<CodeGroup>
+```csharp Administrator Policy
+var adminPolicy = new UserPolicy
+{
+    IsAdministrator = true,
+    EnableAllFolders = true,
+    EnableAllDevices = true,
+    EnableMediaPlayback = true,
+    EnableContentDeletion = true,
+    EnableLiveTvManagement = true,
+    EnableRemoteAccess = true
+};
+```
+
+```csharp Limited User Policy
+var limitedPolicy = new UserPolicy
+{
+    IsAdministrator = false,
+    EnableAllFolders = false,
+    EnabledFolders = new[] { movieLibraryId, tvLibraryId },
+    EnableMediaPlayback = true,
+    EnableAudioPlaybackTranscoding = true,
+    EnableVideoPlaybackTranscoding = false,
+    MaxParentalRating = 13,
+    EnableContentDeletion = false,
+    EnableRemoteAccess = true
+};
+```
+
+```csharp Child Policy
+var childPolicy = new UserPolicy
+{
+    IsAdministrator = false,
+    MaxParentalRating = 7,
+    BlockUnratedItems = new[] 
+    { 
+        UnratedItem.Movie, 
+        UnratedItem.Series 
+    },
+    EnableAllFolders = false,
+    EnabledFolders = new[] { kidsLibraryId },
+    AccessSchedules = new[]
+    {
+        new AccessSchedule
+        {
+            DayOfWeek = DayOfWeek.Saturday,
+            StartHour = 8,
+            EndHour = 20
+        },
+        new AccessSchedule
+        {
+            DayOfWeek = DayOfWeek.Sunday,
+            StartHour = 8,
+            EndHour = 20
+        }
+    }
+};
+```
+</CodeGroup>
+
+## Password Management
+
+### Changing Passwords
+
+```csharp
+public async Task ChangePassword(User user, string newPassword)
+{
+    var authProvider = GetAuthenticationProvider(user);
+    await authProvider.ChangePassword(user, newPassword)
+        .ConfigureAwait(false);
+    
+    user.MustUpdatePassword = false;
+    await UpdateUserAsync(user).ConfigureAwait(false);
+}
+```
+
+### Password Reset
+
+```csharp
+public async Task<ForgotPasswordResult> StartForgotPasswordProcess(
+    string enteredUsername, 
+    bool isInNetwork)
+{
+    var user = GetUserByName(enteredUsername);
+    var provider = GetPasswordResetProvider(user);
+    
+    return await provider.StartForgotPasswordProcess(user, isInNetwork)
+        .ConfigureAwait(false);
+}
+
+public async Task<PinRedeemResult> RedeemPasswordResetPin(string pin)
+{
+    // Validate PIN and reset password
+    var result = await _passwordResetProvider.RedeemPasswordResetPin(pin)
+        .ConfigureAwait(false);
+    
+    return result;
+}
+```
+
+## Access Schedules
+
+Access schedules restrict when users can access the server:
+
+```csharp
+public class AccessSchedule
+{
+    public DayOfWeek DayOfWeek { get; set; }
+    public double StartHour { get; set; }  // 0-24
+    public double EndHour { get; set; }    // 0-24
+}
+```
+
+<Warning>
+  Access schedules are enforced at the session level. Users with active sessions when a schedule ends will be logged out automatically.
+</Warning>
+
+## Permissions
+
+Fine-grained permissions control specific actions:
+
+```csharp
+public class Permission
+{
+    public PermissionKind Kind { get; set; }
+    public bool Value { get; set; }
+}
+
+public enum PermissionKind
+{
+    IsAdministrator,
+    IsHidden,
+    IsDisabled,
+    EnableAllDevices,
+    EnableAllFolders,
+    EnableContentDeletion,
+    EnableContentDownloading,
+    EnableMediaConversion,
+    EnableMediaPlayback,
+    EnablePlaybackRemuxing,
+    EnablePublicSharing,
+    EnableRemoteAccess,
+    EnableSyncTranscoding
+}
+```
+
+## Username Validation
+
+Usernames must meet certain criteria:
+
+```csharp
+[GeneratedRegex(@"^(?!\s)[\w\ \-'._@+]+(?<!\s)$")]
+private static partial Regex ValidUsernameRegex();
+
+private void ThrowIfInvalidUsername(string name)
+{
+    if (string.IsNullOrWhiteSpace(name))
+    {
+        throw new ArgumentException("Username cannot be empty");
+    }
+    
+    if (!ValidUsernameRegex().IsMatch(name))
+    {
+        throw new ArgumentException(
+            "Username can only contain letters, numbers, dashes, " +
+            "underscores, apostrophes, periods, spaces, and at-signs.");
+    }
+}
+```
+
+## Security Features
+
+<Tabs>
+  <Tab title="Login Attempts">
+    Failed login attempts are tracked and can trigger account lockout:
+    
+    ```csharp
+    if (user.LoginAttemptsBeforeLockout.HasValue && 
+        user.InvalidLoginAttemptCount >= user.LoginAttemptsBeforeLockout)
+    {
+        user.AuthenticationProviderId = _invalidAuthProvider.Name;
+        await UpdateUserAsync(user).ConfigureAwait(false);
+        throw new SecurityException("User account locked due to too many failed attempts");
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Session Management">
+    Maximum concurrent sessions can be limited:
+    
+    ```csharp
+    if (user.MaxActiveSessions > 0)
+    {
+        var activeSessions = _sessionManager
+            .GetSessions(user.Id)
+            .Count();
+        
+        if (activeSessions >= user.MaxActiveSessions)
+        {
+            throw new SecurityException(
+                "Maximum number of active sessions reached");
+        }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Password Complexity">
+    Password requirements can be enforced through authentication providers:
+    
+    - Minimum length
+    - Character requirements (uppercase, lowercase, numbers, symbols)
+    - Password history
+    - Expiration policies
+  </Tab>
+</Tabs>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture" icon="sitemap" href="/concepts/architecture">
+    Learn about Jellyfin's architecture
+  </Card>
+  <Card title="Media Libraries" icon="folder-open" href="/concepts/media-libraries">
+    Understand media organization
+  </Card>
+  <Card title="Plugins" icon="puzzle-piece" href="/concepts/plugins">
+    Extend authentication with plugins
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/authentication/overview">
+    User management API endpoints
+  </Card>
+</CardGroup>

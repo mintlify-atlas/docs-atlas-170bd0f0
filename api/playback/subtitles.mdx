@@ -1,0 +1,637 @@
+---
+title: "Subtitles"
+description: "Subtitle retrieval, search, download, and delivery endpoints"
+---
+
+## Overview
+
+The Subtitle API provides comprehensive subtitle management including fetching embedded subtitles, searching external subtitle providers, downloading subtitles, and delivering them in various formats.
+
+## Get Subtitle Stream
+
+Retrieves subtitles in a specified format.
+
+### Get Subtitle
+
+```http
+GET /Videos/{itemId}/{mediaSourceId}/Subtitles/{index}/Stream.{format}
+```
+
+**Authentication:** Required
+
+<ParamField path="itemId" type="string" required>
+  The unique identifier of the video item
+</ParamField>
+
+<ParamField path="mediaSourceId" type="string" required>
+  The media source identifier
+</ParamField>
+
+<ParamField path="index" type="integer" required>
+  The subtitle stream index (zero-based)
+</ParamField>
+
+<ParamField path="format" type="string" required>
+  The output format:
+  - `vtt` - WebVTT (recommended for web)
+  - `srt` - SubRip
+  - `ass` - Advanced SubStation Alpha
+  - `ssa` - SubStation Alpha
+  - `json` - JSON format
+</ParamField>
+
+<ParamField query="startPositionTicks" type="integer" default="0">
+  The start position of the subtitle in ticks. Used for extracting a subset of subtitles.
+</ParamField>
+
+<ParamField query="endPositionTicks" type="integer">
+  The end position of the subtitle in ticks. If omitted, returns subtitles to the end.
+</ParamField>
+
+<ParamField query="copyTimestamps" type="boolean" default="false">
+  Whether to copy the original timestamps (useful when transcoding with an offset)
+</ParamField>
+
+<ParamField query="addVttTimeMap" type="boolean" default="false">
+  Whether to add a VTT time map header. Required for HLS subtitle synchronization:
+  ```
+  WEBVTT
+  X-TIMESTAMP-MAP=MPEGTS:900000,LOCAL:00:00:00.000
+  ```
+</ParamField>
+
+<ResponseField name="Subtitle" type="string">
+  Subtitle file content in the requested format
+</ResponseField>
+
+**Response Codes:**
+- `200 OK` - Subtitle file returned
+- `401 Unauthorized` - Authentication required
+- `404 Not Found` - Item or subtitle stream not found
+
+#### Example Request
+
+```bash
+curl -X GET "https://your-jellyfin-server/Videos/12345678-1234-1234-1234-123456789abc/12345678-1234-1234-1234-123456789abc/Subtitles/0/Stream.vtt" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -o subtitles.vtt
+```
+
+---
+
+### Get Subtitle with Time Range
+
+Retrieves subtitles for a specific time range.
+
+```http
+GET /Videos/{itemId}/{mediaSourceId}/Subtitles/{index}/{startPositionTicks}/Stream.{format}
+```
+
+Parameters are the same as above, with `startPositionTicks` in the path.
+
+#### Example Request
+
+```bash
+# Get subtitles starting from 5 minutes (5 * 60 * 1000 * 10000 = 3000000000 ticks)
+curl -X GET "https://your-jellyfin-server/Videos/12345678-1234-1234-1234-123456789abc/12345678-1234-1234-1234-123456789abc/Subtitles/0/3000000000/Stream.vtt?endPositionTicks=6000000000" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -o subtitles-range.vtt
+```
+
+---
+
+## HLS Subtitle Playlist
+
+Generates an HLS playlist for subtitles, allowing them to be loaded as segments.
+
+### Get HLS Subtitle Playlist
+
+```http
+GET /Videos/{itemId}/{mediaSourceId}/Subtitles/{index}/subtitles.m3u8
+```
+
+**Authentication:** Required
+
+<ParamField path="itemId" type="string" required>
+  The video item identifier
+</ParamField>
+
+<ParamField path="mediaSourceId" type="string" required>
+  The media source identifier
+</ParamField>
+
+<ParamField path="index" type="integer" required>
+  The subtitle stream index
+</ParamField>
+
+<ParamField query="segmentLength" type="integer" required>
+  The subtitle segment length in seconds (typically matches video segment length)
+</ParamField>
+
+<ResponseField name="Playlist" type="string">
+  M3U8 playlist with subtitle segment URLs
+</ResponseField>
+
+**Response Codes:**
+- `200 OK` - Subtitle playlist returned
+- `400 Bad Request` - Invalid parameters or HLS subtitles not supported for this media
+- `401 Unauthorized` - Authentication required
+- `404 Not Found` - Item not found
+
+#### Example Request
+
+```bash
+curl -X GET "https://your-jellyfin-server/Videos/12345678-1234-1234-1234-123456789abc/12345678-1234-1234-1234-123456789abc/Subtitles/0/subtitles.m3u8?segmentLength=6" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+#### Example Response
+
+```m3u8
+#EXTM3U
+#EXT-X-TARGETDURATION:6
+#EXT-X-VERSION:3
+#EXT-X-MEDIA-SEQUENCE:0
+#EXT-X-PLAYLIST-TYPE:VOD
+#EXTINF:6.0,
+stream.vtt?CopyTimestamps=true&AddVttTimeMap=true&StartPositionTicks=0&EndPositionTicks=60000000&ApiKey=...
+#EXTINF:6.0,
+stream.vtt?CopyTimestamps=true&AddVttTimeMap=true&StartPositionTicks=60000000&EndPositionTicks=120000000&ApiKey=...
+#EXT-X-ENDLIST
+```
+
+---
+
+## Search Remote Subtitles
+
+Searches for subtitles from external providers (e.g., OpenSubtitles).
+
+### Search Subtitles
+
+```http
+GET /Items/{itemId}/RemoteSearch/Subtitles/{language}
+```
+
+**Authentication:** Required (SubtitleManagement policy)
+
+<ParamField path="itemId" type="string" required>
+  The video item identifier
+</ParamField>
+
+<ParamField path="language" type="string" required>
+  The ISO 639-1 language code (e.g., `en`, `es`, `fr`, `de`, `ja`)
+</ParamField>
+
+<ParamField query="isPerfectMatch" type="boolean">
+  Only show subtitles which are a perfect match for the video
+</ParamField>
+
+<ResponseField name="Subtitles" type="array">
+  Array of RemoteSubtitleInfo objects:
+  
+  <Expandable title="RemoteSubtitleInfo Properties">
+    <ResponseField name="ThreeLetterISOLanguageName" type="string">
+      Three-letter ISO language code
+    </ResponseField>
+    
+    <ResponseField name="Id" type="string">
+      Unique identifier for the subtitle
+    </ResponseField>
+    
+    <ResponseField name="ProviderName" type="string">
+      Name of the subtitle provider
+    </ResponseField>
+    
+    <ResponseField name="Name" type="string">
+      Subtitle name/title
+    </ResponseField>
+    
+    <ResponseField name="Format" type="string">
+      Subtitle format (srt, ass, etc.)
+    </ResponseField>
+    
+    <ResponseField name="Author" type="string">
+      Subtitle author/uploader
+    </ResponseField>
+    
+    <ResponseField name="Comment" type="string">
+      Comments about the subtitle
+    </ResponseField>
+    
+    <ResponseField name="DateCreated" type="string">
+      Creation date (ISO 8601)
+    </ResponseField>
+    
+    <ResponseField name="CommunityRating" type="number">
+      Community rating (0-10)
+    </ResponseField>
+    
+    <ResponseField name="DownloadCount" type="integer">
+      Number of downloads
+    </ResponseField>
+    
+    <ResponseField name="IsHashMatch" type="boolean">
+      Whether the subtitle matches the video file hash
+    </ResponseField>
+    
+    <ResponseField name="IsForced" type="boolean">
+      Whether this is a forced subtitle track
+    </ResponseField>
+    
+    <ResponseField name="IsHearingImpaired" type="boolean">
+      Whether this subtitle includes hearing impaired descriptions
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+**Response Codes:**
+- `200 OK` - Search results returned
+- `401 Unauthorized` - Authentication required
+- `403 Forbidden` - User lacks SubtitleManagement permission
+- `404 Not Found` - Item not found
+
+#### Example Request
+
+```bash
+curl -X GET "https://your-jellyfin-server/Items/12345678-1234-1234-1234-123456789abc/RemoteSearch/Subtitles/en?isPerfectMatch=true" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+#### Example Response
+
+```json
+[
+  {
+    "ThreeLetterISOLanguageName": "eng",
+    "Id": "opensubtitles-1234567",
+    "ProviderName": "Open Subtitles",
+    "Name": "Movie.Name.2023.1080p.BluRay.x264",
+    "Format": "srt",
+    "Author": "SubtitleAuthor",
+    "Comment": "Perfect sync for BluRay release",
+    "DateCreated": "2023-06-15T10:30:00Z",
+    "CommunityRating": 8.5,
+    "DownloadCount": 1523,
+    "IsHashMatch": true,
+    "IsForced": false,
+    "IsHearingImpaired": false
+  }
+]
+```
+
+---
+
+## Download Remote Subtitle
+
+Downloads a subtitle from an external provider.
+
+### Download Subtitle
+
+```http
+POST /Items/{itemId}/RemoteSearch/Subtitles/{subtitleId}
+```
+
+**Authentication:** Required (SubtitleManagement policy)
+
+<ParamField path="itemId" type="string" required>
+  The video item identifier
+</ParamField>
+
+<ParamField path="subtitleId" type="string" required>
+  The subtitle identifier from the search results
+</ParamField>
+
+**Response Codes:**
+- `204 No Content` - Subtitle downloaded successfully
+- `401 Unauthorized` - Authentication required
+- `403 Forbidden` - User lacks SubtitleManagement permission
+- `404 Not Found` - Item or subtitle not found
+
+#### Example Request
+
+```bash
+curl -X POST "https://your-jellyfin-server/Items/12345678-1234-1234-1234-123456789abc/RemoteSearch/Subtitles/opensubtitles-1234567" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+---
+
+## Get Remote Subtitle
+
+Retrieves a remote subtitle file without downloading it to the server.
+
+### Get Remote Subtitle File
+
+```http
+GET /Providers/Subtitles/Subtitles/{subtitleId}
+```
+
+**Authentication:** Required (SubtitleManagement policy)
+
+<ParamField path="subtitleId" type="string" required>
+  The subtitle identifier from search results
+</ParamField>
+
+<ResponseField name="Subtitle" type="binary">
+  Subtitle file content with appropriate MIME type
+</ResponseField>
+
+**Response Codes:**
+- `200 OK` - Subtitle file returned
+- `401 Unauthorized` - Authentication required
+- `403 Forbidden` - User lacks SubtitleManagement permission
+
+#### Example Request
+
+```bash
+curl -X GET "https://your-jellyfin-server/Providers/Subtitles/Subtitles/opensubtitles-1234567" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -o downloaded-subtitle.srt
+```
+
+---
+
+## Upload Subtitle
+
+Uploads an external subtitle file for a video.
+
+### Upload Subtitle File
+
+```http
+POST /Videos/{itemId}/Subtitles
+```
+
+**Authentication:** Required (SubtitleManagement policy)
+
+<ParamField path="itemId" type="string" required>
+  The video item identifier
+</ParamField>
+
+<ParamField body="Language" type="string" required>
+  ISO 639-1 language code (e.g., "en", "es", "fr")
+</ParamField>
+
+<ParamField body="Format" type="string" required>
+  Subtitle format: `srt`, `ass`, `ssa`, `vtt`, `sub`
+</ParamField>
+
+<ParamField body="IsForced" type="boolean" required>
+  Whether this is a forced subtitle track
+</ParamField>
+
+<ParamField body="IsHearingImpaired" type="boolean" required>
+  Whether this subtitle includes hearing impaired descriptions
+</ParamField>
+
+<ParamField body="Data" type="string" required>
+  Base64-encoded subtitle file content
+</ParamField>
+
+**Response Codes:**
+- `204 No Content` - Subtitle uploaded successfully
+- `400 Bad Request` - Invalid subtitle data
+- `401 Unauthorized` - Authentication required
+- `403 Forbidden` - User lacks SubtitleManagement permission
+- `404 Not Found` - Item not found
+
+#### Example Request
+
+```bash
+# First, encode the subtitle file
+SUBTITLE_BASE64=$(base64 -w 0 subtitle.srt)
+
+# Then upload
+curl -X POST "https://your-jellyfin-server/Videos/12345678-1234-1234-1234-123456789abc/Subtitles" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "Language": "en",
+    "Format": "srt",
+    "IsForced": false,
+    "IsHearingImpaired": false,
+    "Data": "'$SUBTITLE_BASE64'"
+  }'
+```
+
+---
+
+## Delete Subtitle
+
+Deletes an external subtitle file.
+
+### Delete Subtitle
+
+```http
+DELETE /Videos/{itemId}/Subtitles/{index}
+```
+
+**Authentication:** Required (Elevation policy)
+
+<ParamField path="itemId" type="string" required>
+  The video item identifier
+</ParamField>
+
+<ParamField path="index" type="integer" required>
+  The subtitle stream index to delete
+</ParamField>
+
+**Response Codes:**
+- `204 No Content` - Subtitle deleted successfully
+- `401 Unauthorized` - Authentication required
+- `403 Forbidden` - User lacks elevation privileges
+- `404 Not Found` - Item or subtitle not found
+
+#### Example Request
+
+```bash
+curl -X DELETE "https://your-jellyfin-server/Videos/12345678-1234-1234-1234-123456789abc/Subtitles/2" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+---
+
+## Fallback Fonts
+
+Manage fallback fonts used for rendering subtitles.
+
+### Get Fallback Font List
+
+```http
+GET /FallbackFont/Fonts
+```
+
+**Authentication:** Required
+
+Returns a list of available fallback font files.
+
+<ResponseField name="Fonts" type="array">
+  Array of FontFile objects:
+  
+  <Expandable title="FontFile Properties">
+    <ResponseField name="Name" type="string">
+      Font file name
+    </ResponseField>
+    
+    <ResponseField name="Size" type="integer">
+      File size in bytes
+    </ResponseField>
+    
+    <ResponseField name="DateCreated" type="string">
+      Creation date (ISO 8601)
+    </ResponseField>
+    
+    <ResponseField name="DateModified" type="string">
+      Last modified date (ISO 8601)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+**Response Codes:**
+- `200 OK` - Font list returned
+- `401 Unauthorized` - Authentication required
+
+---
+
+### Get Fallback Font File
+
+```http
+GET /FallbackFont/Fonts/{name}
+```
+
+**Authentication:** Required
+
+<ParamField path="name" type="string" required>
+  The font file name
+</ParamField>
+
+<ResponseField name="Font" type="binary">
+  Font file content (woff, woff2, ttf, or otf format)
+</ResponseField>
+
+**Response Codes:**
+- `200 OK` - Font file returned
+- `401 Unauthorized` - Authentication required
+- `404 Not Found` - Font file not found
+
+---
+
+## Subtitle Formats
+
+### SubRip (SRT)
+
+Most widely supported format:
+
+```srt
+1
+00:00:10,500 --> 00:00:13,000
+First subtitle line
+
+2
+00:00:13,500 --> 00:00:16,000
+Second subtitle line
+```
+
+### WebVTT (VTT)
+
+Web standard, required for HLS:
+
+```vtt
+WEBVTT
+
+00:00:10.500 --> 00:00:13.000
+First subtitle line
+
+00:00:13.500 --> 00:00:16.000
+Second subtitle line
+```
+
+### Advanced SubStation Alpha (ASS)
+
+Supports styling and positioning:
+
+```ass
+[Script Info]
+Title: Example
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, Bold, Italic
+Style: Default,Arial,20,&H00FFFFFF,-1,0
+
+[Events]
+Format: Layer, Start, End, Style, Text
+Dialogue: 0,0:00:10.50,0:00:13.00,Default,First subtitle line
+```
+
+### JSON
+
+Structured format for programmatic use:
+
+```json
+{
+  "subtitles": [
+    {
+      "start": 10500,
+      "end": 13000,
+      "text": "First subtitle line"
+    }
+  ]
+}
+```
+
+## Subtitle Delivery Methods
+
+When playing video with subtitles, you can specify the delivery method:
+
+### Encode (Burned In)
+- Subtitles are permanently rendered into the video
+- Always visible, cannot be disabled
+- Works on all devices
+- Requires transcoding
+- Use when: Client doesn't support text subtitles
+
+### Embed
+- Subtitles included as a separate stream in the container
+- Can be toggled on/off
+- Requires container and client support
+- No transcoding if source supports it
+- Use when: Client supports subtitle streams in the container format
+
+### External
+- Subtitles served as a separate file
+- Maximum compatibility
+- Client fetches subtitle file separately
+- No transcoding required
+- Use when: Maximum flexibility needed
+
+### HLS
+- Subtitles included in HLS manifest
+- Segmented like video/audio
+- Best for adaptive streaming
+- Client-side subtitle rendering
+- Use when: Using HLS video streaming
+
+## Best Practices
+
+1. **Format Selection**:
+   - Web playback: Use WebVTT
+   - Maximum compatibility: Use SubRip (SRT)
+   - Advanced styling: Use ASS/SSA
+
+2. **Searching Subtitles**:
+   - Use `isPerfectMatch=true` for better quality matches
+   - Check `IsHashMatch` in results for best sync
+   - Consider `CommunityRating` and `DownloadCount`
+
+3. **Performance**:
+   - External subtitles avoid transcoding overhead
+   - Cache converted subtitle formats
+   - Use HLS subtitle playlists for long videos
+
+4. **Language Codes**:
+   - Use ISO 639-1 two-letter codes when possible
+   - ISO 639-2 three-letter codes are also supported
+
+5. **Time Synchronization**:
+   - Use `copyTimestamps=true` when transcoding
+   - Add VTT time map for HLS (`addVttTimeMap=true`)
+   - Test subtitle sync after encoding

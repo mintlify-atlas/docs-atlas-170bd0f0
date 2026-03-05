@@ -1,0 +1,495 @@
+---
+title: "Library API"
+description: "Manage libraries, scan media, and perform library operations"
+---
+
+The Library API provides endpoints for managing Jellyfin libraries, including scanning, refreshing, deleting items, and retrieving library information.
+
+## Start Library Scan
+
+Initiate a full library scan to refresh all media.
+
+<CodeGroup>
+```bash cURL
+curl -X POST "https://your-server/Library/Refresh" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+```javascript JavaScript
+const response = await fetch('https://your-server/Library/Refresh', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'MediaBrowser Token=YOUR_API_KEY'
+  }
+});
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    'https://your-server/Library/Refresh',
+    headers={'Authorization': 'MediaBrowser Token=YOUR_API_KEY'}
+)
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  POST
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/Library/Refresh`
+</ParamField>
+
+### Authorization
+
+Requires elevation policy (administrator access).
+
+### Response Codes
+
+- `204` - No Content: Library scan started successfully
+
+---
+
+## Delete Items
+
+Delete one or more items from the library and filesystem.
+
+### Delete Single Item
+
+```bash Single Item
+curl -X DELETE "https://your-server/Items/{itemId}" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+`DELETE /Items/{itemId}`
+
+### Delete Multiple Items
+
+```bash Multiple Items
+curl -X DELETE "https://your-server/Items?ids=id1,id2,id3" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+`DELETE /Items`
+
+### Path Parameters
+
+<ParamField path="itemId" type="string (GUID)" required>
+  The item ID to delete (single item endpoint).
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="ids" type="string[]" required>
+  Comma-delimited item IDs to delete (multiple items endpoint).
+</ParamField>
+
+### Response Codes
+
+- `204` - No Content: Item(s) deleted successfully
+- `401` - Unauthorized: User does not have permission to delete
+- `404` - Not Found: Item not found
+
+---
+
+## Get Item Counts
+
+Retrieve item counts for various media types.
+
+```bash cURL
+curl -X GET "https://your-server/Items/Counts?userId=USER_ID" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+### Endpoint
+
+`GET /Items/Counts`
+
+### Query Parameters
+
+<ParamField query="userId" type="string (GUID)">
+  Get counts from a specific user's library.
+</ParamField>
+
+<ParamField query="isFavorite" type="boolean">
+  Get counts of favorite items only.
+</ParamField>
+
+### Response
+
+<ResponseField name="MovieCount" type="integer">
+  Number of movies in the library.
+</ResponseField>
+
+<ResponseField name="SeriesCount" type="integer">
+  Number of TV series.
+</ResponseField>
+
+<ResponseField name="EpisodeCount" type="integer">
+  Number of episodes.
+</ResponseField>
+
+<ResponseField name="AlbumCount" type="integer">
+  Number of music albums.
+</ResponseField>
+
+<ResponseField name="SongCount" type="integer">
+  Number of audio tracks.
+</ResponseField>
+
+<ResponseField name="MusicVideoCount" type="integer">
+  Number of music videos.
+</ResponseField>
+
+<ResponseField name="BoxSetCount" type="integer">
+  Number of box sets.
+</ResponseField>
+
+<ResponseField name="BookCount" type="integer">
+  Number of books.
+</ResponseField>
+
+### Response Codes
+
+- `200` - Success: Item counts returned
+
+---
+
+## Get Media Folders
+
+Retrieve all user media folders (libraries).
+
+```bash cURL
+curl -X GET "https://your-server/Library/MediaFolders" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+### Endpoint
+
+`GET /Library/MediaFolders`
+
+### Query Parameters
+
+<ParamField query="isHidden" type="boolean">
+  Filter by folders that are marked hidden.
+</ParamField>
+
+### Response
+
+<ResponseField name="Items" type="array">
+  Array of media folder objects.
+  
+  <Expandable title="Media Folder properties">
+    <ResponseField name="Id" type="string (GUID)">
+      Unique identifier for the folder.
+    </ResponseField>
+    
+    <ResponseField name="Name" type="string">
+      The folder name.
+    </ResponseField>
+    
+    <ResponseField name="CollectionType" type="string">
+      Type of collection (movies, tvshows, music, etc).
+    </ResponseField>
+    
+    <ResponseField name="Path" type="string">
+      File system path to the folder.
+    </ResponseField>
+    
+    <ResponseField name="IsHidden" type="boolean">
+      Whether the folder is hidden.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="TotalRecordCount" type="integer">
+  Total number of media folders.
+</ResponseField>
+
+### Authorization
+
+Requires elevation policy (administrator access).
+
+### Response Codes
+
+- `200` - Success: Media folders returned
+
+---
+
+## Get Physical Paths
+
+Get a list of physical paths from virtual folders.
+
+```bash cURL
+curl -X GET "https://your-server/Library/PhysicalPaths" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+### Endpoint
+
+`GET /Library/PhysicalPaths`
+
+### Response
+
+Array of physical path strings.
+
+### Authorization
+
+Requires elevation policy (administrator access).
+
+### Response Codes
+
+- `200` - Success: Physical paths returned
+
+---
+
+## Get Item Ancestors
+
+Retrieve all parent items of a specific item.
+
+```bash cURL
+curl -X GET "https://your-server/Items/{itemId}/Ancestors?userId=USER_ID" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+### Endpoint
+
+`GET /Items/{itemId}/Ancestors`
+
+### Path Parameters
+
+<ParamField path="itemId" type="string (GUID)" required>
+  The item ID.
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="userId" type="string (GUID)">
+  Filter by user ID and attach user data.
+</ParamField>
+
+### Response
+
+Array of BaseItemDto objects representing the parent items, from immediate parent to root.
+
+### Response Codes
+
+- `200` - Success: Item ancestors returned
+- `404` - Not Found: Item not found
+
+---
+
+## Get Similar Items
+
+Find items similar to a specific item.
+
+```bash cURL
+curl -X GET "https://your-server/Items/{itemId}/Similar?limit=10" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+### Endpoint
+
+`GET /Items/{itemId}/Similar`
+
+Also available at:
+- `/Movies/{itemId}/Similar`
+- `/Shows/{itemId}/Similar`
+- `/Albums/{itemId}/Similar`
+- `/Artists/{itemId}/Similar`
+
+### Path Parameters
+
+<ParamField path="itemId" type="string (GUID)" required>
+  The item ID.
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="userId" type="string (GUID)">
+  Filter by user ID and attach user data.
+</ParamField>
+
+<ParamField query="limit" type="integer">
+  Maximum number of similar items to return.
+</ParamField>
+
+<ParamField query="fields" type="string[]">
+  Comma-delimited additional fields to return.
+</ParamField>
+
+<ParamField query="excludeArtistIds" type="string[]">
+  Comma-delimited artist IDs to exclude.
+</ParamField>
+
+### Response
+
+<ResponseField name="Items" type="array">
+  Array of similar items.
+</ResponseField>
+
+<ResponseField name="TotalRecordCount" type="integer">
+  Total number of similar items found.
+</ResponseField>
+
+### Response Codes
+
+- `200` - Success: Similar items returned
+
+---
+
+## Download Item
+
+Download the original media file for an item.
+
+```bash cURL
+curl -X GET "https://your-server/Items/{itemId}/Download" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -o "downloaded-file.mp4"
+```
+
+### Endpoint
+
+`GET /Items/{itemId}/Download`
+
+### Path Parameters
+
+<ParamField path="itemId" type="string (GUID)" required>
+  The item ID.
+</ParamField>
+
+### Authorization
+
+Requires download policy permission.
+
+### Response
+
+The media file stream with appropriate content type and filename.
+
+### Response Codes
+
+- `200` - Success: Media file stream returned
+- `404` - Not Found: Item not found
+- `400` - Bad Request: Item does not support downloading
+
+---
+
+## Get Theme Media
+
+Retrieve theme songs and videos for an item.
+
+### Get Theme Songs
+
+```bash Theme Songs
+curl -X GET "https://your-server/Items/{itemId}/ThemeSongs" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+`GET /Items/{itemId}/ThemeSongs`
+
+### Get Theme Videos
+
+```bash Theme Videos
+curl -X GET "https://your-server/Items/{itemId}/ThemeVideos" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+`GET /Items/{itemId}/ThemeVideos`
+
+### Get All Theme Media
+
+```bash All Theme Media
+curl -X GET "https://your-server/Items/{itemId}/ThemeMedia" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+`GET /Items/{itemId}/ThemeMedia`
+
+### Path Parameters
+
+<ParamField path="itemId" type="string (GUID)" required>
+  The item ID.
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="userId" type="string (GUID)">
+  Filter by user ID and attach user data.
+</ParamField>
+
+<ParamField query="inheritFromParent" type="boolean" default="false">
+  Whether to search parent items for theme media.
+</ParamField>
+
+### Response
+
+<ResponseField name="Items" type="array">
+  Array of theme media items.
+</ResponseField>
+
+<ResponseField name="TotalRecordCount" type="integer">
+  Total number of theme items.
+</ResponseField>
+
+<ResponseField name="OwnerId" type="string (GUID)">
+  ID of the item that owns the theme media.
+</ResponseField>
+
+### Response Codes
+
+- `200` - Success: Theme media returned
+- `404` - Not Found: Item not found
+
+---
+
+## Virtual Folders
+
+Manage virtual folders (libraries).
+
+### Get Virtual Folders
+
+```bash Get
+curl -X GET "https://your-server/Library/VirtualFolders" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+`GET /Library/VirtualFolders`
+
+### Add Virtual Folder
+
+```bash Add
+curl -X POST "https://your-server/Library/VirtualFolders?name=Movies&collectionType=movies" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "LibraryOptions": {
+      "PathInfos": [{"Path": "/media/movies"}],
+      "EnableRealtimeMonitor": true
+    }
+  }'
+```
+
+`POST /Library/VirtualFolders`
+
+### Remove Virtual Folder
+
+```bash Remove
+curl -X DELETE "https://your-server/Library/VirtualFolders?name=Movies" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+`DELETE /Library/VirtualFolders`
+
+### Authorization
+
+Requires first-time setup or elevation policy.
+
+### Response Codes
+
+- `200` - Success: Virtual folders returned (GET)
+- `204` - No Content: Operation completed successfully (POST/DELETE)
+- `404` - Not Found: Virtual folder not found (DELETE)

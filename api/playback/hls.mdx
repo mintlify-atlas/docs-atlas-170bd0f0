@@ -1,0 +1,496 @@
+---
+title: "HLS Streaming"
+description: "HTTP Live Streaming (HLS) playlist generation and segment delivery"
+---
+
+## Overview
+
+HTTP Live Streaming (HLS) is an adaptive bitrate streaming protocol developed by Apple. Jellyfin generates dynamic HLS playlists and serves media segments for smooth, adaptive streaming across diverse network conditions and devices.
+
+## HLS Architecture
+
+HLS streaming consists of:
+
+1. **Master Playlist** (`.m3u8`) - Lists available quality variants
+2. **Media Playlists** (`.m3u8`) - Lists segments for a specific quality
+3. **Media Segments** (`.ts` or `.mp4`) - Actual video/audio data chunks
+
+## Video HLS Endpoints
+
+### Get Master HLS Video Playlist
+
+Retrieves the master playlist containing all available video stream variants.
+
+```http
+GET /Videos/{itemId}/master.m3u8
+```
+
+**Authentication:** Required
+
+<ParamField path="itemId" type="string" required>
+  The unique identifier of the video item
+</ParamField>
+
+<ParamField query="mediaSourceId" type="string" required>
+  The media source identifier
+</ParamField>
+
+<ParamField query="deviceId" type="string">
+  The device id of the client requesting
+</ParamField>
+
+<ParamField query="playSessionId" type="string">
+  The play session identifier for tracking
+</ParamField>
+
+<ParamField query="segmentContainer" type="string">
+  The segment container format:
+  - `ts` - MPEG-TS (default, more compatible)
+  - `fmp4` - Fragmented MP4 (better compression, requires modern clients)
+</ParamField>
+
+<ParamField query="segmentLength" type="integer">
+  The length of each segment in seconds (typically 3-10 seconds)
+</ParamField>
+
+<ParamField query="minSegments" type="integer">
+  The minimum number of segments to generate before starting playback
+</ParamField>
+
+<ParamField query="videoCodec" type="string">
+  Specify the video codec: `h264`, `hevc`, `vp9`, `av1`
+</ParamField>
+
+<ParamField query="audioCodec" type="string">
+  Specify the audio codec: `aac`, `mp3`, `opus`, `ac3`
+</ParamField>
+
+<ParamField query="videoBitRate" type="integer">
+  The video bitrate in bits per second
+</ParamField>
+
+<ParamField query="audioBitRate" type="integer">
+  The audio bitrate in bits per second
+</ParamField>
+
+<ParamField query="maxWidth" type="integer">
+  Maximum video width in pixels
+</ParamField>
+
+<ParamField query="maxHeight" type="integer">
+  Maximum video height in pixels
+</ParamField>
+
+<ParamField query="enableAdaptiveBitrateStreaming" type="boolean" default="false">
+  Enable adaptive bitrate streaming with multiple quality variants
+</ParamField>
+
+<ParamField query="enableTrickplay" type="boolean" default="true">
+  Enable trickplay image playlists being added to master playlist for thumbnail previews
+</ParamField>
+
+<ParamField query="startTimeTicks" type="integer">
+  Starting position in ticks
+</ParamField>
+
+<ResponseField name="Playlist" type="string">
+  M3U8 master playlist with available stream variants
+</ResponseField>
+
+**Response Codes:**
+- `200 OK` - Master playlist returned
+- `401 Unauthorized` - Authentication required
+- `404 Not Found` - Item not found
+
+#### Example Request
+
+```bash
+curl -X GET "https://your-jellyfin-server/Videos/12345678-1234-1234-1234-123456789abc/master.m3u8?mediaSourceId=12345678-1234-1234-1234-123456789abc&enableAdaptiveBitrateStreaming=true" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+#### Example Response
+
+```m3u8
+#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-STREAM-INF:BANDWIDTH=2400000,RESOLUTION=1280x720,CODECS="avc1.64001f,mp4a.40.2"
+main.m3u8?videoBitRate=2000000&audioBitRate=192000&maxWidth=1280&maxHeight=720
+#EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080,CODECS="avc1.640028,mp4a.40.2"
+main.m3u8?videoBitRate=4500000&audioBitRate=192000&maxWidth=1920&maxHeight=1080
+```
+
+---
+
+### Get Live HLS Video Stream
+
+Generates a live HLS stream with on-demand transcoding.
+
+```http
+GET /Videos/{itemId}/live.m3u8
+```
+
+**Authentication:** Required
+
+<ParamField path="itemId" type="string" required>
+  The unique identifier of the video item
+</ParamField>
+
+<ParamField query="container" type="string">
+  The output container format
+</ParamField>
+
+<ParamField query="mediaSourceId" type="string">
+  The media source identifier
+</ParamField>
+
+<ParamField query="deviceId" type="string">
+  The device id of the client
+</ParamField>
+
+<ParamField query="playSessionId" type="string">
+  The play session identifier
+</ParamField>
+
+<ParamField query="segmentContainer" type="string">
+  The segment container: `ts` or `fmp4`
+</ParamField>
+
+<ParamField query="segmentLength" type="integer">
+  Length of each segment in seconds (default: 6)
+</ParamField>
+
+<ParamField query="minSegments" type="integer">
+  Minimum number of segments before playback starts (default: 2)
+</ParamField>
+
+<ParamField query="videoCodec" type="string">
+  Video codec to use
+</ParamField>
+
+<ParamField query="audioCodec" type="string">
+  Audio codec to use
+</ParamField>
+
+<ParamField query="videoBitRate" type="integer">
+  Video bitrate in bits per second
+</ParamField>
+
+<ParamField query="maxWidth" type="integer">
+  Maximum width in pixels
+</ParamField>
+
+<ParamField query="maxHeight" type="integer">
+  Maximum height in pixels
+</ParamField>
+
+<ParamField query="enableSubtitlesInManifest" type="boolean" default="true">
+  Whether to include subtitle streams in the manifest
+</ParamField>
+
+<ParamField query="alwaysBurnInSubtitleWhenTranscoding" type="boolean" default="false">
+  Whether to always burn in subtitles when transcoding
+</ParamField>
+
+<ResponseField name="Playlist" type="string">
+  M3U8 media playlist with segment URLs
+</ResponseField>
+
+**Response Codes:**
+- `200 OK` - HLS live stream playlist returned
+- `401 Unauthorized` - Authentication required
+
+#### Example Request
+
+```bash
+curl -X GET "https://your-jellyfin-server/Videos/12345678-1234-1234-1234-123456789abc/live.m3u8?segmentContainer=ts&segmentLength=6&videoCodec=h264&audioCodec=aac" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+---
+
+### Get Variant HLS Video Playlist
+
+Retrieves a specific quality variant playlist.
+
+```http
+GET /Videos/{itemId}/main.m3u8
+```
+
+**Authentication:** Required
+
+Parameters are similar to the live stream endpoint. This generates a media playlist for a specific quality level.
+
+**Response Codes:**
+- `200 OK` - Variant playlist returned
+- `401 Unauthorized` - Authentication required
+
+---
+
+## Audio HLS Endpoints
+
+### Get Master HLS Audio Playlist
+
+Retrieves the master playlist for audio streaming.
+
+```http
+GET /Audio/{itemId}/master.m3u8
+```
+
+**Authentication:** Required
+
+<ParamField path="itemId" type="string" required>
+  The unique identifier of the audio item
+</ParamField>
+
+<ParamField query="mediaSourceId" type="string" required>
+  The media source identifier
+</ParamField>
+
+<ParamField query="deviceId" type="string">
+  The device id of the client
+</ParamField>
+
+<ParamField query="playSessionId" type="string">
+  The play session identifier
+</ParamField>
+
+<ParamField query="segmentContainer" type="string">
+  The segment container format
+</ParamField>
+
+<ParamField query="segmentLength" type="integer">
+  Length of each segment in seconds
+</ParamField>
+
+<ParamField query="audioCodec" type="string">
+  Audio codec to use: `aac`, `mp3`, `opus`
+</ParamField>
+
+<ParamField query="audioBitRate" type="integer">
+  Audio bitrate in bits per second
+</ParamField>
+
+<ParamField query="maxStreamingBitrate" type="integer">
+  Maximum streaming bitrate
+</ParamField>
+
+<ParamField query="maxAudioChannels" type="integer">
+  Maximum number of audio channels
+</ParamField>
+
+<ParamField query="enableAdaptiveBitrateStreaming" type="boolean" default="false">
+  Enable adaptive bitrate streaming
+</ParamField>
+
+<ResponseField name="Playlist" type="string">
+  M3U8 master playlist for audio streaming
+</ResponseField>
+
+**Response Codes:**
+- `200 OK` - Master playlist returned
+- `401 Unauthorized` - Authentication required
+
+#### Example Request
+
+```bash
+curl -X GET "https://your-jellyfin-server/Audio/12345678-1234-1234-1234-123456789abc/master.m3u8?mediaSourceId=12345678-1234-1234-1234-123456789abc&audioCodec=aac&audioBitRate=192000" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+---
+
+## HLS Segment Endpoints
+
+### Get HLS Video Segment
+
+Retrieves a specific video segment.
+
+```http
+GET /Videos/{itemId}/hls/{playlistId}/{segmentId}.{segmentContainer}
+```
+
+<ParamField path="itemId" type="string" required>
+  The video item identifier
+</ParamField>
+
+<ParamField path="playlistId" type="string" required>
+  The playlist identifier
+</ParamField>
+
+<ParamField path="segmentId" type="string" required>
+  The segment identifier
+</ParamField>
+
+<ParamField path="segmentContainer" type="string" required>
+  The segment container extension: `ts` or `mp4`
+</ParamField>
+
+**Response Codes:**
+- `200 OK` - Segment returned
+- `404 Not Found` - Segment not found
+
+---
+
+### Get HLS Audio Segment (Legacy)
+
+Retrieves a specific audio segment.
+
+```http
+GET /Audio/{itemId}/hls/{segmentId}/stream.{extension}
+```
+
+<ParamField path="itemId" type="string" required>
+  The audio item identifier
+</ParamField>
+
+<ParamField path="segmentId" type="string" required>
+  The segment identifier
+</ParamField>
+
+<ParamField path="extension" type="string" required>
+  The file extension: `mp3` or `aac`
+</ParamField>
+
+**Response Codes:**
+- `200 OK` - Segment returned
+- `400 Bad Request` - Invalid segment
+
+---
+
+## Stopping Active Encoding
+
+### Stop Encoding Process
+
+Stops an active encoding/transcoding process.
+
+```http
+DELETE /Videos/ActiveEncodings
+```
+
+**Authentication:** Required
+
+<ParamField query="deviceId" type="string" required>
+  The device id of the client
+</ParamField>
+
+<ParamField query="playSessionId" type="string" required>
+  The play session identifier
+</ParamField>
+
+**Response Codes:**
+- `204 No Content` - Encoding stopped successfully
+- `401 Unauthorized` - Authentication required
+
+#### Example Request
+
+```bash
+curl -X DELETE "https://your-jellyfin-server/Videos/ActiveEncodings?deviceId=my-device&playSessionId=abc123def456" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+---
+
+## HLS Best Practices
+
+### Segment Length
+
+**Recommended Values:**
+- **Low Latency**: 2-3 seconds
+- **Standard**: 6 seconds (Jellyfin default)
+- **High Efficiency**: 10 seconds
+
+**Trade-offs:**
+- Shorter segments: Lower latency, faster quality switching, higher overhead
+- Longer segments: Better compression, less overhead, slower adaptation
+
+### Segment Container
+
+**MPEG-TS (`ts`)**
+- ✅ Maximum compatibility
+- ✅ Works with older devices
+- ❌ Less efficient compression
+- ❌ Larger file sizes
+
+**Fragmented MP4 (`fmp4`)**
+- ✅ Better compression
+- ✅ Smaller file sizes
+- ✅ Supports more codecs (including FLAC)
+- ❌ Requires FFmpeg 7.0+ for certain features
+- ❌ May not work with older clients
+
+### Adaptive Bitrate Streaming
+
+When `enableAdaptiveBitrateStreaming=true`, Jellyfin generates multiple quality variants:
+
+```m3u8
+#EXTM3U
+#EXT-X-VERSION:3
+# Low quality - mobile/poor connection
+#EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=640x360
+main.m3u8?videoBitRate=600000&maxWidth=640&maxHeight=360
+
+# Medium quality - standard broadband
+#EXT-X-STREAM-INF:BANDWIDTH=2400000,RESOLUTION=1280x720
+main.m3u8?videoBitRate=2000000&maxWidth=1280&maxHeight=720
+
+# High quality - fast connection
+#EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080
+main.m3u8?videoBitRate=4500000&maxWidth=1920&maxHeight=1080
+```
+
+The client automatically switches between variants based on available bandwidth.
+
+### Playlist Types
+
+**VOD (Video on Demand)**
+```m3u8
+#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-TARGETDURATION:6
+#EXT-X-MEDIA-SEQUENCE:0
+#EXT-X-PLAYLIST-TYPE:VOD
+#EXTINF:6.0,
+segment0.ts
+#EXTINF:6.0,
+segment1.ts
+#EXT-X-ENDLIST
+```
+
+**Live/Event**
+```m3u8
+#EXTM3U
+#EXT-X-VERSION:3
+#EXT-X-TARGETDURATION:6
+#EXT-X-MEDIA-SEQUENCE:42
+#EXTINF:6.0,
+segment42.ts
+#EXTINF:6.0,
+segment43.ts
+# Playlist updates as new segments become available
+```
+
+### Trickplay Thumbnails
+
+When `enableTrickplay=true`, the master playlist includes thumbnail image playlists for seek previews:
+
+```m3u8
+#EXT-X-IMAGE-STREAM-INF:BANDWIDTH=50000,RESOLUTION=320x180,CODECS="jpeg"
+trickplay/index.m3u8
+```
+
+### Client Implementation Tips
+
+1. **Segment Buffering**: Buffer at least 3 segments ahead of playback position
+2. **Quality Switching**: Switch quality variants at segment boundaries
+3. **Error Handling**: Retry failed segments with exponential backoff
+4. **Bandwidth Estimation**: Track download speed to predict optimal quality
+5. **Playlist Refresh**: Refresh live playlists periodically (every target duration)
+
+### Server Configuration
+
+**Transcoding Path**: Ensure adequate disk space in the transcoding directory for temporary segments
+
+**Cleanup**: Jellyfin automatically removes old segment files, but monitor disk usage during active streams
+
+**Hardware Acceleration**: Enable for better performance with multiple concurrent HLS streams

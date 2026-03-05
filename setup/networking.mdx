@@ -1,0 +1,572 @@
+---
+title: Network Configuration
+description: Configure Jellyfin network settings, ports, remote access, and reverse proxy
+---
+
+Proper network configuration is essential for accessing your Jellyfin server locally and remotely. This guide covers network settings, port configuration, SSL/TLS setup, and reverse proxy integration.
+
+## Network Configuration File
+
+Jellyfin stores network settings in `network.xml` within the config directory:
+
+```bash
+/var/lib/jellyfin/config/network.xml
+```
+
+## Port Configuration
+
+Jellyfin uses the following default ports:
+
+<Tabs>
+  <Tab title="HTTP">
+    Default HTTP port: **8096**
+    
+    ```xml
+    <InternalHttpPort>8096</InternalHttpPort>
+    <PublicHttpPort>8096</PublicHttpPort>
+    ```
+    
+    - `InternalHttpPort`: Port the server listens on internally (default: 8096)
+    - `PublicHttpPort`: Port advertised for external access (default: 8096)
+  </Tab>
+
+  <Tab title="HTTPS">
+    Default HTTPS port: **8920**
+    
+    ```xml
+    <InternalHttpsPort>8920</InternalHttpsPort>
+    <PublicHttpsPort>8920</PublicHttpsPort>
+    ```
+    
+    - `InternalHttpsPort`: Internal HTTPS port (default: 8920)
+    - `PublicHttpsPort`: Public HTTPS port (default: 8920)
+  </Tab>
+</Tabs>
+
+<Info>Public and internal ports can differ when using port forwarding or reverse proxy.</Info>
+
+## Base URL Configuration
+
+If hosting Jellyfin at a subpath (e.g., behind a reverse proxy), configure the base URL:
+
+```xml
+<BaseUrl>/jellyfin</BaseUrl>
+```
+
+<Steps>
+  <Step title="Understanding Base URL">
+    The base URL is automatically normalized:
+    - Leading `/` is added if missing
+    - Trailing `/` is removed
+    - Empty values default to root path
+  </Step>
+
+  <Step title="Reverse Proxy Example">
+    If accessing Jellyfin at `https://example.com/jellyfin`:
+    
+    ```xml
+    <BaseUrl>/jellyfin</BaseUrl>
+    ```
+  </Step>
+
+  <Step title="Root Path">
+    For root path hosting (`https://jellyfin.example.com`):
+    
+    ```xml
+    <BaseUrl></BaseUrl>
+    ```
+  </Step>
+</Steps>
+
+## SSL/TLS Configuration
+
+### Enabling HTTPS
+
+<Steps>
+  <Step title="Enable HTTPS">
+    Set the HTTPS flag in network configuration:
+    
+    ```xml
+    <EnableHttps>true</EnableHttps>
+    ```
+  </Step>
+
+  <Step title="Certificate Configuration">
+    Provide path to SSL certificate and password:
+    
+    ```xml
+    <CertificatePath>/etc/jellyfin/ssl/jellyfin.pfx</CertificatePath>
+    <CertificatePassword>your-certificate-password</CertificatePassword>
+    ```
+    
+    <Warning>The certificate must be in PFX (PKCS#12) format.</Warning>
+  </Step>
+
+  <Step title="Force HTTPS (Optional)">
+    Redirect all HTTP requests to HTTPS:
+    
+    ```xml
+    <RequireHttps>true</RequireHttps>
+    ```
+  </Step>
+</Steps>
+
+### Generating SSL Certificates
+
+<CodeGroup>
+```bash Self-Signed Certificate
+# Generate a self-signed certificate
+openssl req -x509 -newkey rsa:4096 -keyout key.pem -out cert.pem -days 365 -nodes
+
+# Convert to PFX format
+openssl pkcs12 -export -out jellyfin.pfx -inkey key.pem -in cert.pem
+```
+
+```bash Let's Encrypt (Certbot)
+# Install certbot
+sudo apt-get install certbot
+
+# Generate certificate
+sudo certbot certonly --standalone -d jellyfin.example.com
+
+# Convert to PFX
+openssl pkcs12 -export -out jellyfin.pfx \
+  -inkey /etc/letsencrypt/live/jellyfin.example.com/privkey.pem \
+  -in /etc/letsencrypt/live/jellyfin.example.com/fullchain.pem
+```
+</CodeGroup>
+
+<Tip>For production environments, use a reverse proxy like Nginx or Caddy to handle SSL termination instead of Jellyfin's built-in HTTPS.</Tip>
+
+## Network Binding
+
+### IP Version Support
+
+```xml
+<EnableIPv4>true</EnableIPv4>
+<EnableIPv6>false</EnableIPv6>
+```
+
+Control which IP protocols are enabled.
+
+### Bind Addresses
+
+Specify which network interfaces Jellyfin should bind to:
+
+```xml
+<LocalNetworkAddresses>
+  <string>192.168.1.100</string>
+  <string>10.0.0.50</string>
+</LocalNetworkAddresses>
+```
+
+<Info>Leave empty to bind to all available interfaces.</Info>
+
+### Virtual Interface Filtering
+
+```xml
+<IgnoreVirtualInterfaces>true</IgnoreVirtualInterfaces>
+<VirtualInterfaceNames>
+  <string>veth</string>
+  <string>docker</string>
+  <string>br-</string>
+</VirtualInterfaceNames>
+```
+
+Ignore virtual interfaces created by Docker, VMs, or containers.
+
+## LAN Configuration
+
+### Local Network Subnets
+
+Define which IP ranges are considered local:
+
+```xml
+<LocalNetworkSubnets>
+  <string>192.168.1.0/24</string>
+  <string>10.0.0.0/8</string>
+  <string>172.16.0.0/12</string>
+</LocalNetworkSubnets>
+```
+
+<Steps>
+  <Step title="Automatic Detection">
+    If not specified, Jellyfin automatically detects local networks.
+  </Step>
+
+  <Step title="Custom Subnets">
+    Explicitly define subnets for:
+    - Complex network topologies
+    - VPN access
+    - Multiple VLANs
+  </Step>
+
+  <Step title="CIDR Notation">
+    Use CIDR notation (e.g., `192.168.1.0/24`) to specify network ranges.
+  </Step>
+</Steps>
+
+## Remote Access
+
+### Enable Remote Access
+
+```xml
+<EnableRemoteAccess>true</EnableRemoteAccess>
+```
+
+Allow connections from outside the local network.
+
+### Auto Discovery
+
+```xml
+<AutoDiscovery>true</AutoDiscovery>
+```
+
+Enable automatic discovery by clients on the local network.
+
+<Warning>UPnP-based port forwarding is no longer supported. Use manual port forwarding or a reverse proxy instead.</Warning>
+
+### Published Server URI
+
+<Tabs>
+  <Tab title="By Request">
+    Automatically determine server URI from HTTP requests:
+    
+    ```xml
+    <EnablePublishedServerUriByRequest>false</EnablePublishedServerUriByRequest>
+    ```
+    
+    <Info>Disabled by default for security.</Info>
+  </Tab>
+
+  <Tab title="By Subnet">
+    Advertise different URIs for specific subnets:
+    
+    ```xml
+    <PublishedServerUriBySubnet>
+      <string>192.168.1.0/24=http://192.168.1.100:8096</string>
+      <string>10.0.0.0/8=http://10.0.0.50:8096</string>
+    </PublishedServerUriBySubnet>
+    ```
+  </Tab>
+</Tabs>
+
+## IP Filtering
+
+### Remote IP Filter
+
+Control which remote IPs can access the server:
+
+```xml
+<RemoteIPFilter>
+  <string>203.0.113.0/24</string>
+  <string>198.51.100.50</string>
+</RemoteIPFilter>
+<IsRemoteIPFilterBlacklist>false</IsRemoteIPFilterBlacklist>
+```
+
+<Tabs>
+  <Tab title="Whitelist Mode">
+    `IsRemoteIPFilterBlacklist=false`: Only allow listed IPs
+    
+    ```xml
+    <RemoteIPFilter>
+      <string>203.0.113.0/24</string>
+    </RemoteIPFilter>
+    <IsRemoteIPFilterBlacklist>false</IsRemoteIPFilterBlacklist>
+    ```
+  </Tab>
+
+  <Tab title="Blacklist Mode">
+    `IsRemoteIPFilterBlacklist=true`: Block listed IPs
+    
+    ```xml
+    <RemoteIPFilter>
+      <string>198.51.100.0/24</string>
+    </RemoteIPFilter>
+    <IsRemoteIPFilterBlacklist>true</IsRemoteIPFilterBlacklist>
+    ```
+  </Tab>
+</Tabs>
+
+## Reverse Proxy Configuration
+
+### Known Proxies
+
+Register reverse proxy IPs for proper forwarding:
+
+```xml
+<KnownProxies>
+  <string>172.17.0.1</string>
+  <string>192.168.1.1</string>
+</KnownProxies>
+```
+
+<Info>Jellyfin trusts `X-Forwarded-For` and `X-Real-IP` headers from known proxies.</Info>
+
+### Nginx Configuration
+
+<CodeGroup>
+```nginx Subdomain
+server {
+    listen 80;
+    server_name jellyfin.example.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name jellyfin.example.com;
+
+    ssl_certificate /etc/ssl/certs/jellyfin.crt;
+    ssl_certificate_key /etc/ssl/private/jellyfin.key;
+
+    location / {
+        proxy_pass http://localhost:8096;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Protocol $scheme;
+        proxy_set_header X-Forwarded-Host $http_host;
+
+        # Disable buffering for better streaming
+        proxy_buffering off;
+    }
+
+    # WebSocket support
+    location /socket {
+        proxy_pass http://localhost:8096;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+```nginx Subpath
+server {
+    listen 80;
+    server_name example.com;
+
+    location /jellyfin {
+        return 302 $scheme://$host/jellyfin/;
+    }
+
+    location /jellyfin/ {
+        proxy_pass http://localhost:8096/jellyfin/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Protocol $scheme;
+        proxy_set_header X-Forwarded-Host $http_host;
+
+        proxy_buffering off;
+    }
+}
+```
+</CodeGroup>
+
+### Apache Configuration
+
+```apache
+<VirtualHost *:80>
+    ServerName jellyfin.example.com
+    Redirect permanent / https://jellyfin.example.com/
+</VirtualHost>
+
+<VirtualHost *:443>
+    ServerName jellyfin.example.com
+
+    SSLEngine on
+    SSLCertificateFile /etc/ssl/certs/jellyfin.crt
+    SSLCertificateKeyFile /etc/ssl/private/jellyfin.key
+
+    ProxyPreserveHost On
+    ProxyPass / http://localhost:8096/
+    ProxyPassReverse / http://localhost:8096/
+
+    RequestHeader set X-Forwarded-Proto "https"
+    RequestHeader set X-Forwarded-Port "443"
+
+    # WebSocket support
+    RewriteEngine On
+    RewriteCond %{HTTP:Upgrade} websocket [NC]
+    RewriteCond %{HTTP:Connection} upgrade [NC]
+    RewriteRule ^/?(.*) "ws://localhost:8096/$1" [P,L]
+</VirtualHost>
+```
+
+### Caddy Configuration
+
+```caddy
+jellyfin.example.com {
+    reverse_proxy localhost:8096
+}
+```
+
+<Tip>Caddy automatically handles HTTPS certificates via Let's Encrypt.</Tip>
+
+### Traefik Configuration
+
+```yaml
+http:
+  routers:
+    jellyfin:
+      rule: "Host(`jellyfin.example.com`)"
+      entryPoints:
+        - websecure
+      service: jellyfin
+      tls:
+        certResolver: letsencrypt
+
+  services:
+    jellyfin:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8096"
+```
+
+## Firewall Configuration
+
+<Tabs>
+  <Tab title="UFW (Ubuntu)">
+    ```bash
+    sudo ufw allow 8096/tcp
+    sudo ufw allow 8920/tcp
+    sudo ufw reload
+    ```
+  </Tab>
+
+  <Tab title="firewalld (CentOS/RHEL)">
+    ```bash
+    sudo firewall-cmd --permanent --add-port=8096/tcp
+    sudo firewall-cmd --permanent --add-port=8920/tcp
+    sudo firewall-cmd --reload
+    ```
+  </Tab>
+
+  <Tab title="iptables">
+    ```bash
+    sudo iptables -A INPUT -p tcp --dport 8096 -j ACCEPT
+    sudo iptables -A INPUT -p tcp --dport 8920 -j ACCEPT
+    sudo iptables-save > /etc/iptables/rules.v4
+    ```
+  </Tab>
+</Tabs>
+
+## Docker Networking
+
+When running Jellyfin in Docker:
+
+<CodeGroup>
+```yaml docker-compose.yml
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    network_mode: host
+    volumes:
+      - /path/to/config:/config
+      - /path/to/media:/media
+    environment:
+      - TZ=America/New_York
+    restart: unless-stopped
+```
+
+```bash Docker Run
+docker run -d \
+  --name jellyfin \
+  --network host \
+  -v /path/to/config:/config \
+  -v /path/to/media:/media \
+  -e TZ=America/New_York \
+  jellyfin/jellyfin:latest
+```
+
+```yaml Bridge Network
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    ports:
+      - "8096:8096"
+      - "8920:8920"
+    volumes:
+      - /path/to/config:/config
+      - /path/to/media:/media
+    restart: unless-stopped
+```
+</CodeGroup>
+
+<Info>Using `network_mode: host` provides better performance and automatic discovery but requires the host network stack.</Info>
+
+## Troubleshooting
+
+<Steps>
+  <Step title="Cannot Access Remotely">
+    Check:
+    - `EnableRemoteAccess` is `true`
+    - Firewall allows traffic on configured ports
+    - Router port forwarding is configured
+    - Public IP address is correct
+  </Step>
+
+  <Step title="HTTPS Not Working">
+    Verify:
+    - Certificate path is correct and accessible
+    - Certificate is in PFX format
+    - Certificate password is correct
+    - Ports 8920 (or custom HTTPS port) are open
+  </Step>
+
+  <Step title="Reverse Proxy Issues">
+    Ensure:
+    - Base URL matches proxy configuration
+    - Proxy IP is in `KnownProxies`
+    - WebSocket support is enabled
+    - Headers are properly forwarded
+  </Step>
+
+  <Step title="Auto Discovery Not Working">
+    - Enable `AutoDiscovery` in network.xml
+    - Check firewall allows UDP broadcast
+    - Verify client and server are on same network
+  </Step>
+</Steps>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Reverse Proxy" icon="shield">
+    Let Nginx, Caddy, or Traefik handle SSL/TLS termination for better security and easier certificate management.
+  </Card>
+  
+  <Card title="Secure Remote Access" icon="lock">
+    Use VPN or properly configured reverse proxy with strong authentication for remote access.
+  </Card>
+  
+  <Card title="Limit Exposure" icon="filter">
+    Use IP filtering to restrict access to known networks or IP ranges.
+  </Card>
+  
+  <Card title="Monitor Logs" icon="chart-line">
+    Regularly check network logs for suspicious access attempts.
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Transcoding Setup" icon="film" href="./transcoding">
+    Configure media transcoding and quality settings
+  </Card>
+  <Card title="Hardware Acceleration" icon="microchip" href="./hardware-acceleration">
+    Enable GPU acceleration for better performance
+  </Card>
+</CardGroup>

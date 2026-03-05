@@ -1,0 +1,333 @@
+---
+title: Building from Source
+description: Complete guide to building Jellyfin Server from source code
+---
+
+This guide provides step-by-step instructions for building Jellyfin Server from source on your local development machine.
+
+## Prerequisites
+
+Before building Jellyfin, ensure you have the following prerequisites installed:
+
+<Steps>
+  <Step title="Install .NET 9.0 SDK">
+    Download and install the [.NET 9.0 SDK](https://dotnet.microsoft.com/download/dotnet) for your operating system.
+    
+    Verify installation:
+    ```bash
+    dotnet --version
+    ```
+  </Step>
+
+  <Step title="Install FFmpeg">
+    Jellyfin requires [jellyfin-ffmpeg](https://github.com/jellyfin/jellyfin-ffmpeg) for media transcoding.
+    
+    <Tabs>
+      <Tab title="Linux">
+        Follow the [Linux installation guide](https://jellyfin.org/docs/general/installation/linux#repository-manual) to install the official Jellyfin FFmpeg package.
+      </Tab>
+      <Tab title="Windows">
+        Download FFmpeg from the official Jellyfin FFmpeg releases and add it to your system PATH.
+      </Tab>
+      <Tab title="macOS">
+        ```bash
+        brew install ffmpeg
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Install an IDE (Optional)">
+    While not required, an IDE makes debugging easier:
+    - **Visual Studio 2022** or later (Windows)
+    - **Visual Studio Code** with C# extension (All platforms)
+    - **JetBrains Rider** (All platforms)
+  </Step>
+</Steps>
+
+<Note>
+  Jellyfin Server is supported on all major operating systems except FreeBSD.
+</Note>
+
+## Cloning the Repository
+
+Clone the Jellyfin repository from GitHub:
+
+```bash
+git clone https://github.com/jellyfin/jellyfin.git
+cd jellyfin
+```
+
+<Info>
+  If you plan to contribute code changes, you should [fork the repository](https://github.com/jellyfin/jellyfin/fork) first and clone your fork instead.
+</Info>
+
+## Installing the Web Client
+
+The server hosts the web client's static files. You have two options:
+
+### Option 1: Use Pre-built Web Client
+
+Copy the web client files from an existing Jellyfin installation:
+- **Windows**: `C:\Program Files\Jellyfin\Server\jellyfin-web`
+- **Linux**: `/usr/share/jellyfin/web` or `/usr/lib/jellyfin/jellyfin-web`
+
+### Option 2: Build from Source
+
+Build the web client from the [jellyfin-web repository](https://github.com/jellyfin/jellyfin-web):
+
+```bash
+git clone https://github.com/jellyfin/jellyfin-web.git
+cd jellyfin-web
+npm ci --no-audit
+npm run build:production
+```
+
+The built files will be in the `dist` directory.
+
+### Option 3: Host Web Client Separately (Development)
+
+<Tip>
+  For active development, it's recommended to host the web client separately using its webpack dev server. See [Advanced Configuration](#hosting-the-web-client-separately) below.
+</Tip>
+
+## Building the Server
+
+Choose one of the following methods to build Jellyfin Server:
+
+<Tabs>
+  <Tab title="Command Line">
+    ### Build the Project
+    
+    ```bash
+    dotnet build
+    ```
+    
+    The built assemblies will be in `Jellyfin.Server/bin/Debug/net10.0/`.
+    
+    ### Build for Release
+    
+    ```bash
+    dotnet build --configuration Release
+    ```
+  </Tab>
+  
+  <Tab title="Visual Studio">
+    1. Open `Jellyfin.sln` in Visual Studio 2022 or later
+    2. Select **Build > Build Solution** (or press `Ctrl+Shift+B`)
+    3. The solution will build with the Debug configuration by default
+  </Tab>
+  
+  <Tab title="Visual Studio Code">
+    1. Open the repository folder in VS Code using **File > Open Folder**
+    2. Install the recommended workspace extensions when prompted
+    3. Press `F5` to build and run with debugging
+    
+    <Note>
+      VS Code requires the C# Dev Kit extension for full .NET support.
+    </Note>
+  </Tab>
+</Tabs>
+
+## Running the Server
+
+### Running from Command Line
+
+You can run the server directly or run the built executable:
+
+<CodeGroup>
+```bash Run with dotnet run
+cd jellyfin
+dotnet run --project Jellyfin.Server --webdir /absolute/path/to/jellyfin-web/dist
+```
+
+```bash Run built executable (Linux/macOS)
+cd Jellyfin.Server/bin/Debug/net10.0
+./jellyfin --webdir /path/to/jellyfin-web/dist
+```
+
+```bash Run built executable (Windows)
+cd Jellyfin.Server\bin\Debug\net10.0
+jellyfin.exe --webdir C:\path\to\jellyfin-web\dist
+```
+</CodeGroup>
+
+<Info>
+  Use the `--help` flag to see all available command line options:
+  ```bash
+  ./jellyfin --help
+  ```
+</Info>
+
+### Running from Visual Studio
+
+1. Open `Jellyfin.sln`
+2. Set `Jellyfin.Server` as the startup project (if not already set)
+3. Press `F5` to run with debugging, or `Ctrl+F5` to run without debugging
+
+### Running from Visual Studio Code
+
+1. Open the repository folder
+2. Ensure recommended extensions are installed
+3. Press `F5` to start debugging
+4. Select the `.NET Core Launch (web)` configuration if prompted
+
+### Accessing the Server
+
+Once running, access the server at:
+
+- **Web Client**: `http://localhost:8096`
+- **API Documentation**: `http://localhost:8096/api-docs/swagger/index.html`
+
+<Note>
+  On first run, you'll be redirected to the setup wizard. If running without a web client, you'll need to complete setup through an external client.
+</Note>
+
+## Running Tests
+
+Jellyfin includes comprehensive unit and integration tests:
+
+<Tabs>
+  <Tab title="All Tests">
+    Run all tests in the solution:
+    ```bash
+    dotnet test
+    ```
+  </Tab>
+  
+  <Tab title="Specific Project">
+    Run tests for a specific project:
+    ```bash
+    dotnet test tests/Jellyfin.Api.Tests
+    ```
+  </Tab>
+  
+  <Tab title="Visual Studio">
+    Use the Test Explorer:
+    1. Open **Test > Test Explorer**
+    2. Click **Run All** or right-click individual tests
+  </Tab>
+  
+  <Tab title="VS Code">
+    Run tests using CodeLens:
+    - Click **Run Test** or **Debug Test** above each test method
+    - Or use the Testing sidebar panel
+  </Tab>
+</Tabs>
+
+## Advanced Configuration
+
+### Hosting the Web Client Separately
+
+For frontend development, you can host the web client in a separate webpack dev server:
+
+<Steps>
+  <Step title="Start the web client dev server">
+    In the `jellyfin-web` repository:
+    ```bash
+    npm run serve:development
+    ```
+  </Step>
+  
+  <Step title="Run the server without web client">
+    Use the `--nowebclient` flag or environment variable:
+    
+    <CodeGroup>
+    ```bash Command Line
+    dotnet run --project Jellyfin.Server --nowebclient
+    ```
+    
+    ```bash Environment Variable
+    export JELLYFIN_NOWEBCONTENT=true
+    dotnet run --project Jellyfin.Server
+    ```
+    </CodeGroup>
+  </Step>
+  
+  <Step title="Access the development setup">
+    - Server API: `http://localhost:8096`
+    - Web Client: `http://localhost:8080` (or the port shown by webpack)
+  </Step>
+</Steps>
+
+<Warning>
+  The setup wizard cannot be run when the web client is hosted separately.
+</Warning>
+
+### Running in GitHub Codespaces
+
+Jellyfin supports development in GitHub Codespaces with pre-configured containers:
+
+#### Default Configuration
+- Basic server environment with no web client or ffmpeg
+- Use `.NET Launch (nowebclient)` launch configuration
+- Connect via external client
+
+#### With FFmpeg
+- Includes ffmpeg6 installation
+- Use `ghcs .NET Launch (nowebclient, ffmpeg)` launch configuration
+
+<Note>
+  Codespaces may take 20-30 seconds to fully initialize all extensions. Wait until you see "Downloading .NET version(s) 7.0.15~x64 ...... Done!" in the output.
+</Note>
+
+<Tip>
+  Set ports to **public** in the Ports panel if you need to access the instance from outside the Codespace.
+</Tip>
+
+## Project Structure
+
+Key projects in the solution:
+
+| Project | Description |
+|---------|-------------|
+| `Jellyfin.Server` | Main executable and web host configuration |
+| `Jellyfin.Api` | REST API controllers and endpoints |
+| `MediaBrowser.Controller` | Core interfaces and contracts |
+| `Emby.Server.Implementations` | Main business logic implementations |
+| `Jellyfin.Server.Implementations` | Additional server implementations |
+| `MediaBrowser.Model` | Shared data models and DTOs |
+| `Jellyfin.Data` | Entity Framework database models |
+
+## Troubleshooting
+
+### Build Errors
+
+<AccordionGroup>
+  <Accordion title="SDK version errors">
+    Ensure you have .NET 9.0 SDK or later installed:
+    ```bash
+    dotnet --list-sdks
+    ```
+  </Accordion>
+  
+  <Accordion title="Missing web client errors">
+    If you see errors about missing web content:
+    - Either provide the `--webdir` path to web client files
+    - Or use `--nowebclient` flag to run without the web client
+  </Accordion>
+  
+  <Accordion title="Port already in use">
+    If port 8096 is in use, specify a different port:
+    ```bash
+    ./jellyfin --port 8097
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Overview" icon="code" href="./api-overview">
+    Learn about the Jellyfin API architecture and endpoints
+  </Card>
+  <Card title="Contributing Guide" icon="users" href="./contributing">
+    Read the contribution guidelines and development workflow
+  </Card>
+  <Card title="Plugin Development" icon="plug" href="./plugin-development">
+    Create plugins to extend Jellyfin's functionality
+  </Card>
+  <Card title="Running Tests" icon="check" href="#running-tests">
+    Write and run tests for your code changes
+  </Card>
+</CardGroup>

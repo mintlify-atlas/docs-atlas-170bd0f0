@@ -1,0 +1,621 @@
+---
+title: "Metadata API"
+description: "Fetch and update media metadata, search external providers, and refresh metadata"
+---
+
+The Metadata API provides endpoints for managing item metadata, including fetching from external providers, updating metadata fields, and triggering metadata refreshes.
+
+## Refresh Item Metadata
+
+Trigger a metadata refresh for a specific item.
+
+<CodeGroup>
+```bash cURL
+curl -X POST "https://your-server/Items/{itemId}/Refresh?metadataRefreshMode=FullRefresh&imageRefreshMode=FullRefresh" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+```javascript JavaScript
+const response = await fetch(
+  `https://your-server/Items/${itemId}/Refresh`,
+  {
+    method: 'POST',
+    headers: {
+      'Authorization': 'MediaBrowser Token=YOUR_API_KEY'
+    },
+    body: new URLSearchParams({
+      metadataRefreshMode: 'FullRefresh',
+      imageRefreshMode: 'FullRefresh'
+    })
+  }
+);
+```
+
+```python Python
+import requests
+
+response = requests.post(
+    f'https://your-server/Items/{item_id}/Refresh',
+    params={
+        'metadataRefreshMode': 'FullRefresh',
+        'imageRefreshMode': 'FullRefresh'
+    },
+    headers={'Authorization': 'MediaBrowser Token=YOUR_API_KEY'}
+)
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  POST
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/Items/{itemId}/Refresh`
+</ParamField>
+
+### Path Parameters
+
+<ParamField path="itemId" type="string (GUID)" required>
+  The item ID to refresh.
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="metadataRefreshMode" type="string" default="None">
+  Metadata refresh mode: None, ValidationOnly, Default, FullRefresh.
+</ParamField>
+
+<ParamField query="imageRefreshMode" type="string" default="None">
+  Image refresh mode: None, ValidationOnly, Default, FullRefresh.
+</ParamField>
+
+<ParamField query="replaceAllMetadata" type="boolean" default="false">
+  Whether to replace all metadata. Only applicable if mode is FullRefresh.
+</ParamField>
+
+<ParamField query="replaceAllImages" type="boolean" default="false">
+  Whether to replace all images. Only applicable if mode is FullRefresh.
+</ParamField>
+
+<ParamField query="regenerateTrickplay" type="boolean" default="false">
+  Whether to regenerate trickplay images. Only applicable if mode is FullRefresh.
+</ParamField>
+
+### Authorization
+
+Requires elevation policy (administrator access).
+
+### Response Codes
+
+- `204` - No Content: Metadata refresh queued successfully
+- `404` - Not Found: Item not found
+
+---
+
+## Update Item Metadata
+
+Update metadata fields for an item.
+
+```bash cURL
+curl -X POST "https://your-server/Items/{itemId}" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "Name": "Updated Movie Title",
+    "Overview": "Updated description",
+    "Genres": ["Action", "Thriller"],
+    "CommunityRating": 8.5,
+    "ProductionYear": 2024,
+    "ProviderIds": {
+      "Tmdb": "12345",
+      "Imdb": "tt1234567"
+    }
+  }'
+```
+
+### Endpoint
+
+`POST /Items/{itemId}`
+
+### Path Parameters
+
+<ParamField path="itemId" type="string (GUID)" required>
+  The item ID.
+</ParamField>
+
+### Request Body
+
+<ParamField body="Name" type="string">
+  Item name/title.
+</ParamField>
+
+<ParamField body="OriginalTitle" type="string">
+  Original title in source language.
+</ParamField>
+
+<ParamField body="ForcedSortName" type="string">
+  Forced sort name for custom ordering.
+</ParamField>
+
+<ParamField body="Overview" type="string">
+  Item description/plot summary.
+</ParamField>
+
+<ParamField body="Tagline" type="string">
+  Short tagline.
+</ParamField>
+
+<ParamField body="Genres" type="string[]">
+  Array of genre names.
+</ParamField>
+
+<ParamField body="Tags" type="string[]">
+  Array of custom tags.
+</ParamField>
+
+<ParamField body="Studios" type="object[]">
+  Array of studio objects with Name property.
+</ParamField>
+
+<ParamField body="ProductionYear" type="integer">
+  Year of production.
+</ParamField>
+
+<ParamField body="PremiereDate" type="string (ISO 8601)">
+  Date the item premiered.
+</ParamField>
+
+<ParamField body="EndDate" type="string (ISO 8601)">
+  End date (for series).
+</ParamField>
+
+<ParamField body="CommunityRating" type="number">
+  Community rating (0-10).
+</ParamField>
+
+<ParamField body="CriticRating" type="number">
+  Critic rating.
+</ParamField>
+
+<ParamField body="OfficialRating" type="string">
+  Official content rating (PG, PG-13, etc).
+</ParamField>
+
+<ParamField body="CustomRating" type="string">
+  Custom rating.
+</ParamField>
+
+<ParamField body="ProviderIds" type="object">
+  External provider IDs (Tmdb, Imdb, Tvdb, etc).
+</ParamField>
+
+<ParamField body="People" type="object[]">
+  Array of person objects with Name, Role, and Type properties.
+</ParamField>
+
+<ParamField body="LockData" type="boolean">
+  Whether metadata is locked from changes.
+</ParamField>
+
+<ParamField body="LockedFields" type="string[]">
+  Specific metadata fields that are locked.
+</ParamField>
+
+### Authorization
+
+Requires elevation policy (administrator access).
+
+### Response Codes
+
+- `204` - No Content: Item updated successfully
+- `404` - Not Found: Item not found
+
+---
+
+## Get Metadata Editor Info
+
+Retrieve metadata editor information for an item.
+
+```bash cURL
+curl -X GET "https://your-server/Items/{itemId}/MetadataEditor" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+### Endpoint
+
+`GET /Items/{itemId}/MetadataEditor`
+
+### Path Parameters
+
+<ParamField path="itemId" type="string (GUID)" required>
+  The item ID.
+</ParamField>
+
+### Response
+
+<ResponseField name="ParentalRatingOptions" type="array">
+  Available parental rating options.
+</ResponseField>
+
+<ResponseField name="Countries" type="array">
+  Available country options.
+</ResponseField>
+
+<ResponseField name="Cultures" type="array">
+  Available culture/language options.
+</ResponseField>
+
+<ResponseField name="ExternalIdInfos" type="array">
+  External ID provider information.
+  
+  <Expandable title="ExternalIdInfo properties">
+    <ResponseField name="Name" type="string">
+      Provider name (TMDb, IMDb, etc).
+    </ResponseField>
+    
+    <ResponseField name="Key" type="string">
+      Provider key.
+    </ResponseField>
+    
+    <ResponseField name="Type" type="string">
+      Type of external ID.
+    </ResponseField>
+    
+    <ResponseField name="UrlFormatString" type="string">
+      URL format for the provider.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="ContentType" type="string">
+  Current content type.
+</ResponseField>
+
+<ResponseField name="ContentTypeOptions" type="array">
+  Available content type options.
+</ResponseField>
+
+### Authorization
+
+Requires elevation policy (administrator access).
+
+### Response Codes
+
+- `200` - Success: Metadata editor info returned
+- `404` - Not Found: Item not found
+
+---
+
+## Remote Search
+
+Search external metadata providers for media information.
+
+### Search Movies
+
+```bash Movie
+curl -X POST "https://your-server/Items/RemoteSearch/Movie" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "SearchInfo": {
+      "Name": "The Matrix",
+      "Year": 1999
+    }
+  }'
+```
+
+`POST /Items/RemoteSearch/Movie`
+
+### Search Series
+
+```bash Series
+curl -X POST "https://your-server/Items/RemoteSearch/Series" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "SearchInfo": {
+      "Name": "Breaking Bad",
+      "Year": 2008
+    }
+  }'
+```
+
+`POST /Items/RemoteSearch/Series`
+
+### Search Music Album
+
+```bash Album
+curl -X POST "https://your-server/Items/RemoteSearch/MusicAlbum" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "SearchInfo": {
+      "Name": "Abbey Road",
+      "Artists": ["The Beatles"],
+      "Year": 1969
+    }
+  }'
+```
+
+`POST /Items/RemoteSearch/MusicAlbum`
+
+Other available endpoints:
+- `/Items/RemoteSearch/Trailer`
+- `/Items/RemoteSearch/MusicVideo`
+- `/Items/RemoteSearch/MusicArtist`
+- `/Items/RemoteSearch/BoxSet`
+- `/Items/RemoteSearch/Book`
+- `/Items/RemoteSearch/Person`
+
+### Request Body
+
+<ParamField body="SearchInfo" type="object" required>
+  Search criteria object.
+  
+  <Expandable title="SearchInfo properties">
+    <ParamField body="Name" type="string">
+      Name/title to search for.
+    </ParamField>
+    
+    <ParamField body="Year" type="integer">
+      Production/release year.
+    </ParamField>
+    
+    <ParamField body="ProviderIds" type="object">
+      Known provider IDs to match.
+    </ParamField>
+    
+    <ParamField body="Artists" type="string[]">
+      Artist names (for music).
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="ItemId" type="string (GUID)">
+  Optional existing item ID.
+</ParamField>
+
+<ParamField body="SearchProviderName" type="string">
+  Specific provider to search.
+</ParamField>
+
+<ParamField body="IncludeDisabledProviders" type="boolean">
+  Include disabled providers in search.
+</ParamField>
+
+### Response
+
+<ResponseField name="SearchResults" type="array">
+  Array of search result objects.
+  
+  <Expandable title="RemoteSearchResult properties">
+    <ResponseField name="Name" type="string">
+      Result name/title.
+    </ResponseField>
+    
+    <ResponseField name="ProductionYear" type="integer">
+      Production year.
+    </ResponseField>
+    
+    <ResponseField name="ProviderIds" type="object">
+      External provider IDs.
+    </ResponseField>
+    
+    <ResponseField name="Overview" type="string">
+      Description.
+    </ResponseField>
+    
+    <ResponseField name="ImageUrl" type="string">
+      URL to poster/cover image.
+    </ResponseField>
+    
+    <ResponseField name="SearchProviderName" type="string">
+      Provider that returned this result.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Response Codes
+
+- `200` - Success: Search results returned
+
+---
+
+## Apply Search Result
+
+Apply a remote search result to an item and refresh metadata.
+
+```bash cURL
+curl -X POST "https://your-server/Items/RemoteSearch/Apply/{itemId}?replaceAllImages=true" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "Name": "The Matrix",
+    "ProductionYear": 1999,
+    "ProviderIds": {
+      "Tmdb": "603",
+      "Imdb": "tt0133093"
+    },
+    "ImageUrl": "https://..."
+  }'
+```
+
+### Endpoint
+
+`POST /Items/RemoteSearch/Apply/{itemId}`
+
+### Path Parameters
+
+<ParamField path="itemId" type="string (GUID)" required>
+  The item ID to update.
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="replaceAllImages" type="boolean" default="true">
+  Whether to replace all existing images.
+</ParamField>
+
+### Request Body
+
+RemoteSearchResult object from search results.
+
+### Authorization
+
+Requires elevation policy (administrator access).
+
+### Response Codes
+
+- `204` - No Content: Search result applied and metadata refreshed
+- `404` - Not Found: Item not found
+
+---
+
+## Get External ID Info
+
+Retrieve external ID information for an item.
+
+```bash cURL
+curl -X GET "https://your-server/Items/{itemId}/ExternalIdInfos" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+### Endpoint
+
+`GET /Items/{itemId}/ExternalIdInfos`
+
+### Path Parameters
+
+<ParamField path="itemId" type="string (GUID)" required>
+  The item ID.
+</ParamField>
+
+### Response
+
+Array of ExternalIdInfo objects describing available external ID providers.
+
+<ResponseField name="ExternalIdInfos" type="array">
+  <Expandable title="ExternalIdInfo properties">
+    <ResponseField name="Name" type="string">
+      Display name of the provider.
+    </ResponseField>
+    
+    <ResponseField name="Key" type="string">
+      Unique key for the provider.
+    </ResponseField>
+    
+    <ResponseField name="Type" type="string">
+      Type of external ID.
+    </ResponseField>
+    
+    <ResponseField name="UrlFormatString" type="string">
+      URL format string with {0} placeholder for the ID.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Authorization
+
+Requires elevation policy (administrator access).
+
+### Response Codes
+
+- `200` - Success: External ID info returned
+- `404` - Not Found: Item not found
+
+---
+
+## Update Content Type
+
+Update the content type for an item.
+
+```bash cURL
+curl -X POST "https://your-server/Items/{itemId}/ContentType?contentType=movies" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+### Endpoint
+
+`POST /Items/{itemId}/ContentType`
+
+### Path Parameters
+
+<ParamField path="itemId" type="string (GUID)" required>
+  The item ID.
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="contentType" type="string">
+  Content type: movies, tvshows, music, books, homevideos, musicvideos, photos, or empty for inherit.
+</ParamField>
+
+### Authorization
+
+Requires elevation policy (administrator access).
+
+### Response Codes
+
+- `204` - No Content: Content type updated
+- `404` - Not Found: Item not found
+
+---
+
+## Library Options
+
+Manage metadata options for libraries.
+
+### Get Library Options Info
+
+```bash Get
+curl -X GET "https://your-server/Libraries/AvailableOptions?libraryContentType=movies" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+`GET /Libraries/AvailableOptions`
+
+### Query Parameters
+
+<ParamField query="libraryContentType" type="string">
+  Library content type to get options for.
+</ParamField>
+
+<ParamField query="isNewLibrary" type="boolean" default="false">
+  Whether this is for a new library.
+</ParamField>
+
+### Response
+
+<ResponseField name="MetadataFetchers" type="array">
+  Available metadata fetcher plugins per item type.
+</ResponseField>
+
+<ResponseField name="ImageFetchers" type="array">
+  Available image fetcher plugins per item type.
+</ResponseField>
+
+<ResponseField name="MetadataSavers" type="array">
+  Available metadata saver plugins.
+</ResponseField>
+
+<ResponseField name="MetadataReaders" type="array">
+  Available local metadata reader plugins.
+</ResponseField>
+
+<ResponseField name="SubtitleFetchers" type="array">
+  Available subtitle fetcher plugins.
+</ResponseField>
+
+<ResponseField name="TypeOptions" type="array">
+  Options organized by item type.
+</ResponseField>
+
+### Authorization
+
+Requires first-time setup or default policy.
+
+### Response Codes
+
+- `200` - Success: Library options returned

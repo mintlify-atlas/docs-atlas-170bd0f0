@@ -1,122 +1,124 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Jellyfin Server",
+  "theme": "aspen",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#2594d5",
+    "light": "#7f77c9",
+    "dark": "#f4f4f8"
   },
   "favicon": "/favicon.svg",
+  "logo": {
+    "light": "https://media.brand.dev/7b3f8418-d538-4f51-aa98-d40b683ef6ce.svg",
+    "dark": "https://media.brand.dev/7b3f8418-d538-4f51-aa98-d40b683ef6ce.svg"
+  },
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/jellyfin/jellyfin"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/jellyfin/jellyfin"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Getting Started",
             "pages": [
-              "index",
+              "introduction",
               "quickstart",
-              "development"
+              "installation"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Concepts",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "concepts/architecture",
+              "concepts/media-libraries",
+              "concepts/users-authentication",
+              "concepts/plugins"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Server Setup",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "setup/configuration",
+              "setup/networking",
+              "setup/transcoding",
+              "setup/hardware-acceleration"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Development",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "development/building-from-source",
+              "development/api-overview",
+              "development/plugin-development",
+              "development/contributing"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Authentication",
             "pages": [
-              "api-reference/introduction"
+              "api/authentication/overview",
+              "api/authentication/api-keys"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Media Management",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api/media/items",
+              "api/media/library",
+              "api/media/images",
+              "api/media/metadata"
+            ]
+          },
+          {
+            "group": "Playback",
+            "pages": [
+              "api/playback/streaming",
+              "api/playback/transcoding",
+              "api/playback/hls",
+              "api/playback/subtitles"
+            ]
+          },
+          {
+            "group": "User Management",
+            "pages": [
+              "api/users/user-endpoints",
+              "api/users/preferences",
+              "api/users/sessions"
+            ]
+          },
+          {
+            "group": "System",
+            "pages": [
+              "api/system/server-info",
+              "api/system/configuration",
+              "api/system/tasks"
+            ]
+          },
+          {
+            "group": "Live TV",
+            "pages": [
+              "api/livetv/channels",
+              "api/livetv/recordings",
+              "api/livetv/guide"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

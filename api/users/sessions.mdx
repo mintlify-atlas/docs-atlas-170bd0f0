@@ -1,0 +1,745 @@
+---
+title: "Session Management"
+description: "API endpoints for managing active sessions, controlling playback, and reporting session activities"
+---
+
+## Overview
+
+The Session Management API provides endpoints for tracking active user sessions, controlling remote playback, reporting viewing activity, and managing session capabilities. Sessions represent active connections from client applications to the Jellyfin server.
+
+## Get Sessions
+
+Retrieves a list of all active sessions on the server.
+
+**Endpoint:** `GET /Sessions`
+
+**Authorization:** Required
+
+### Query Parameters
+
+<ParamField query="controllableByUserId" type="string (UUID)" optional>
+  Filter by sessions that a given user is allowed to remote control
+</ParamField>
+
+<ParamField query="deviceId" type="string" optional>
+  Filter by specific device ID
+</ParamField>
+
+<ParamField query="activeWithinSeconds" type="integer" optional>
+  Filter by sessions active within the last N seconds
+</ParamField>
+
+### Response
+
+<ResponseField name="sessions" type="array">
+  Array of active session objects
+  
+  <Expandable title="SessionInfoDto properties">
+    <ResponseField name="Id" type="string">
+      Unique session identifier
+    </ResponseField>
+    
+    <ResponseField name="UserId" type="string (UUID)">
+      The user ID associated with this session
+    </ResponseField>
+    
+    <ResponseField name="UserName" type="string">
+      The username
+    </ResponseField>
+    
+    <ResponseField name="Client" type="string">
+      Client application name (e.g., "web", "Android", "iOS")
+    </ResponseField>
+    
+    <ResponseField name="DeviceId" type="string">
+      Unique device identifier
+    </ResponseField>
+    
+    <ResponseField name="DeviceName" type="string">
+      Human-readable device name
+    </ResponseField>
+    
+    <ResponseField name="DeviceType" type="string">
+      Type of device (e.g., "Phone", "Tablet", "Desktop")
+    </ResponseField>
+    
+    <ResponseField name="ApplicationVersion" type="string">
+      Version of the client application
+    </ResponseField>
+    
+    <ResponseField name="RemoteEndPoint" type="string">
+      IP address of the client
+    </ResponseField>
+    
+    <ResponseField name="LastActivityDate" type="string (datetime)">
+      Timestamp of last activity
+    </ResponseField>
+    
+    <ResponseField name="LastPlaybackCheckIn" type="string (datetime)">
+      Timestamp of last playback check-in
+    </ResponseField>
+    
+    <ResponseField name="IsActive" type="boolean">
+      Whether the session is currently active
+    </ResponseField>
+    
+    <ResponseField name="SupportsMediaControl" type="boolean">
+      Whether the session supports remote media control
+    </ResponseField>
+    
+    <ResponseField name="SupportsRemoteControl" type="boolean">
+      Whether the session supports remote control commands
+    </ResponseField>
+    
+    <ResponseField name="NowPlayingItem" type="object" optional>
+      Currently playing item information
+    </ResponseField>
+    
+    <ResponseField name="PlayState" type="object" optional>
+      Current playback state (position, paused, volume, etc.)
+    </ResponseField>
+    
+    <ResponseField name="Capabilities" type="object">
+      Client capabilities (supported media types, commands)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Status Codes
+
+- `200` - Sessions returned successfully
+
+### Example Request
+
+```bash
+curl -X GET "https://your-server.com/Sessions?activeWithinSeconds=600" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_TOKEN"
+```
+
+### Example Response
+
+```json
+[
+  {
+    "Id": "session123abc",
+    "UserId": "6eec632a-9b0c-4a63-8b8e-7b7f9c3c9e8f",
+    "UserName": "admin",
+    "Client": "web",
+    "DeviceId": "device456def",
+    "DeviceName": "Chrome Browser",
+    "DeviceType": "Desktop",
+    "ApplicationVersion": "10.8.13",
+    "RemoteEndPoint": "192.168.1.100",
+    "LastActivityDate": "2026-03-05T12:45:30.000Z",
+    "LastPlaybackCheckIn": "2026-03-05T12:45:25.000Z",
+    "IsActive": true,
+    "SupportsMediaControl": true,
+    "SupportsRemoteControl": true,
+    "NowPlayingItem": {
+      "Name": "Example Movie",
+      "Id": "movie123",
+      "Type": "Movie"
+    },
+    "PlayState": {
+      "PositionTicks": 18000000000,
+      "IsPaused": false,
+      "VolumeLevel": 100
+    }
+  }
+]
+```
+
+---
+
+## Post Capabilities
+
+Reports or updates the capabilities of a session/device.
+
+**Endpoint:** `POST /Sessions/Capabilities`
+
+**Authorization:** Required
+
+### Query Parameters
+
+<ParamField query="id" type="string" optional>
+  Session ID. If not provided, uses the current session.
+</ParamField>
+
+<ParamField query="playableMediaTypes" type="array[string]" optional>
+  Comma-delimited list of playable media types: "Audio", "Video", "Book", "Photo"
+</ParamField>
+
+<ParamField query="supportedCommands" type="array[string]" optional>
+  Comma-delimited list of supported remote control commands
+</ParamField>
+
+<ParamField query="supportsMediaControl" type="boolean">
+  Whether the device supports remote media control (default: false)
+</ParamField>
+
+<ParamField query="supportsPersistentIdentifier" type="boolean">
+  Whether the device supports a unique identifier (default: true)
+</ParamField>
+
+### Response
+
+Returns `204 No Content` on success.
+
+### Status Codes
+
+- `204` - Capabilities updated successfully
+
+### Example Request
+
+```bash
+curl -X POST "https://your-server.com/Sessions/Capabilities?playableMediaTypes=Video,Audio&supportsMediaControl=true&supportedCommands=Play,Pause,Stop,Seek" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_TOKEN"
+```
+
+---
+
+## Post Full Capabilities
+
+Reports complete capabilities using a request body for more detailed configuration.
+
+**Endpoint:** `POST /Sessions/Capabilities/Full`
+
+**Authorization:** Required
+
+### Query Parameters
+
+<ParamField query="id" type="string" optional>
+  Session ID. If not provided, uses the current session.
+</ParamField>
+
+### Request Body
+
+<ParamField body="PlayableMediaTypes" type="array[string]">
+  List of playable media types: ["Audio", "Video", "Book", "Photo"]
+</ParamField>
+
+<ParamField body="SupportedCommands" type="array[string]">
+  List of supported commands: ["Play", "Pause", "Stop", "Seek", "VolumeUp", etc.]
+</ParamField>
+
+<ParamField body="SupportsMediaControl" type="boolean">
+  Whether the session supports remote media control
+</ParamField>
+
+<ParamField body="SupportsPersistentIdentifier" type="boolean">
+  Whether the device supports a persistent identifier
+</ParamField>
+
+<ParamField body="SupportsSync" type="boolean" optional>
+  Whether the client supports sync
+</ParamField>
+
+### Response
+
+Returns `204 No Content` on success.
+
+### Example Request
+
+```bash
+curl -X POST "https://your-server.com/Sessions/Capabilities/Full" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "PlayableMediaTypes": ["Video", "Audio"],
+    "SupportedCommands": ["Play", "Pause", "Stop", "Seek", "VolumeUp", "VolumeDown", "Mute"],
+    "SupportsMediaControl": true,
+    "SupportsPersistentIdentifier": true
+  }'
+```
+
+---
+
+## Report Viewing
+
+Reports that a session is viewing a specific item (not playing, just viewing details).
+
+**Endpoint:** `POST /Sessions/Viewing`
+
+**Authorization:** Required
+
+### Query Parameters
+
+<ParamField query="sessionId" type="string" optional>
+  Session ID. If not provided, uses the current session.
+</ParamField>
+
+<ParamField query="itemId" type="string" required>
+  The ID of the item being viewed
+</ParamField>
+
+### Response
+
+Returns `204 No Content` on success.
+
+### Status Codes
+
+- `204` - Viewing activity reported successfully
+
+### Example Request
+
+```bash
+curl -X POST "https://your-server.com/Sessions/Viewing?itemId=movie123" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_TOKEN"
+```
+
+---
+
+## Report Session Ended (Logout)
+
+Reports that the current session has ended and logs out the user.
+
+**Endpoint:** `POST /Sessions/Logout`
+
+**Authorization:** Required
+
+### Response
+
+Returns `204 No Content` on success. The authentication token is invalidated.
+
+### Status Codes
+
+- `204` - Session ended successfully
+
+### Example Request
+
+```bash
+curl -X POST "https://your-server.com/Sessions/Logout" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_TOKEN"
+```
+
+---
+
+## Remote Control Commands
+
+The following endpoints allow controlling playback on remote sessions.
+
+### Display Content
+
+Instructs a session to browse to a specific item or view.
+
+**Endpoint:** `POST /Sessions/{sessionId}/Viewing`
+
+**Authorization:** Required
+
+#### Path Parameters
+
+<ParamField path="sessionId" type="string" required>
+  The target session ID to control
+</ParamField>
+
+#### Query Parameters
+
+<ParamField query="itemType" type="string" required>
+  The type of item (e.g., "Movie", "Series", "MusicAlbum")
+</ParamField>
+
+<ParamField query="itemId" type="string" required>
+  The ID of the item to display
+</ParamField>
+
+<ParamField query="itemName" type="string" required>
+  The name of the item
+</ParamField>
+
+#### Example Request
+
+```bash
+curl -X POST "https://your-server.com/Sessions/session123abc/Viewing?itemType=Movie&itemId=movie123&itemName=Example%20Movie" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_TOKEN"
+```
+
+---
+
+### Play
+
+Instructs a session to play specific items.
+
+**Endpoint:** `POST /Sessions/{sessionId}/Playing`
+
+**Authorization:** Required
+
+#### Path Parameters
+
+<ParamField path="sessionId" type="string" required>
+  The target session ID to control
+</ParamField>
+
+#### Query Parameters
+
+<ParamField query="playCommand" type="string" required>
+  The play command: "PlayNow", "PlayNext", or "PlayLast"
+</ParamField>
+
+<ParamField query="itemIds" type="array[string]" required>
+  Comma-delimited list of item IDs to play
+</ParamField>
+
+<ParamField query="startPositionTicks" type="integer" optional>
+  Starting position in ticks (1 tick = 100 nanoseconds)
+</ParamField>
+
+<ParamField query="mediaSourceId" type="string" optional>
+  The media source ID to use
+</ParamField>
+
+<ParamField query="audioStreamIndex" type="integer" optional>
+  The audio stream index to play
+</ParamField>
+
+<ParamField query="subtitleStreamIndex" type="integer" optional>
+  The subtitle stream index to display
+</ParamField>
+
+<ParamField query="startIndex" type="integer" optional>
+  The index of the first item to play
+</ParamField>
+
+#### Example Request
+
+```bash
+curl -X POST "https://your-server.com/Sessions/session123abc/Playing?playCommand=PlayNow&itemIds=movie123&startPositionTicks=0" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_TOKEN"
+```
+
+---
+
+### Send Playstate Command
+
+Sends playback control commands (play, pause, stop, seek) to a session.
+
+**Endpoint:** `POST /Sessions/{sessionId}/Playing/{command}`
+
+**Authorization:** Required
+
+#### Path Parameters
+
+<ParamField path="sessionId" type="string" required>
+  The target session ID to control
+</ParamField>
+
+<ParamField path="command" type="string" required>
+  Playstate command: "Stop", "Pause", "Unpause", "Seek", "NextTrack", "PreviousTrack"
+</ParamField>
+
+#### Query Parameters
+
+<ParamField query="seekPositionTicks" type="integer" optional>
+  Position to seek to in ticks (for Seek command)
+</ParamField>
+
+<ParamField query="controllingUserId" type="string" optional>
+  The user ID issuing the command
+</ParamField>
+
+#### Example Request
+
+```bash
+curl -X POST "https://your-server.com/Sessions/session123abc/Playing/Pause" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_TOKEN"
+```
+
+```bash
+curl -X POST "https://your-server.com/Sessions/session123abc/Playing/Seek?seekPositionTicks=30000000000" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_TOKEN"
+```
+
+---
+
+### Send System Command
+
+Sends system-level commands to a session.
+
+**Endpoint:** `POST /Sessions/{sessionId}/System/{command}`
+
+**Authorization:** Required
+
+#### Path Parameters
+
+<ParamField path="sessionId" type="string" required>
+  The target session ID to control
+</ParamField>
+
+<ParamField path="command" type="string" required>
+  System command: "VolumeUp", "VolumeDown", "Mute", "Unmute", "ToggleMute"
+</ParamField>
+
+#### Example Request
+
+```bash
+curl -X POST "https://your-server.com/Sessions/session123abc/System/VolumeUp" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_TOKEN"
+```
+
+---
+
+### Send General Command
+
+Sends a general command to a session.
+
+**Endpoint:** `POST /Sessions/{sessionId}/Command/{command}`
+
+**Authorization:** Required
+
+#### Path Parameters
+
+<ParamField path="sessionId" type="string" required>
+  The target session ID to control
+</ParamField>
+
+<ParamField path="command" type="string" required>
+  General command type (e.g., "DisplayContent", "GoHome", "GoToSettings")
+</ParamField>
+
+#### Example Request
+
+```bash
+curl -X POST "https://your-server.com/Sessions/session123abc/Command/GoHome" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_TOKEN"
+```
+
+---
+
+### Send Full General Command
+
+Sends a complete general command with custom parameters.
+
+**Endpoint:** `POST /Sessions/{sessionId}/Command`
+
+**Authorization:** Required
+
+#### Path Parameters
+
+<ParamField path="sessionId" type="string" required>
+  The target session ID to control
+</ParamField>
+
+#### Request Body
+
+<ParamField body="Name" type="string" required>
+  Command name (e.g., "DisplayMessage", "SetVolume")
+</ParamField>
+
+<ParamField body="Arguments" type="object" optional>
+  Dictionary of command arguments
+</ParamField>
+
+#### Example Request
+
+```bash
+curl -X POST "https://your-server.com/Sessions/session123abc/Command" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "Name": "SetVolume",
+    "Arguments": {
+      "Volume": "50"
+    }
+  }'
+```
+
+---
+
+### Send Message
+
+Displays a message to the user on the target session.
+
+**Endpoint:** `POST /Sessions/{sessionId}/Message`
+
+**Authorization:** Required
+
+#### Path Parameters
+
+<ParamField path="sessionId" type="string" required>
+  The target session ID
+</ParamField>
+
+#### Request Body
+
+<ParamField body="Header" type="string" optional>
+  Message header (defaults to "Message from Server")
+</ParamField>
+
+<ParamField body="Text" type="string" required>
+  Message text to display
+</ParamField>
+
+<ParamField body="TimeoutMs" type="integer" optional>
+  How long to display the message in milliseconds
+</ParamField>
+
+#### Example Request
+
+```bash
+curl -X POST "https://your-server.com/Sessions/session123abc/Message" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "Header": "Server Notification",
+    "Text": "Server maintenance in 10 minutes",
+    "TimeoutMs": 10000
+  }'
+```
+
+---
+
+## Multi-User Sessions
+
+Jellyfin supports multiple users in a single session (e.g., for family viewing).
+
+### Add User to Session
+
+Adds an additional user to an existing session.
+
+**Endpoint:** `POST /Sessions/{sessionId}/User/{userId}`
+
+**Authorization:** Required
+
+#### Path Parameters
+
+<ParamField path="sessionId" type="string" required>
+  The session ID
+</ParamField>
+
+<ParamField path="userId" type="string (UUID)" required>
+  The user ID to add
+</ParamField>
+
+#### Example Request
+
+```bash
+curl -X POST "https://your-server.com/Sessions/session123abc/User/6eec632a-9b0c-4a63-8b8e-7b7f9c3c9e8f" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_TOKEN"
+```
+
+---
+
+### Remove User from Session
+
+Removes an additional user from a session.
+
+**Endpoint:** `DELETE /Sessions/{sessionId}/User/{userId}`
+
+**Authorization:** Required
+
+#### Path Parameters
+
+<ParamField path="sessionId" type="string" required>
+  The session ID
+</ParamField>
+
+<ParamField path="userId" type="string (UUID)" required>
+  The user ID to remove
+</ParamField>
+
+#### Example Request
+
+```bash
+curl -X DELETE "https://your-server.com/Sessions/session123abc/User/6eec632a-9b0c-4a63-8b8e-7b7f9c3c9e8f" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_TOKEN"
+```
+
+---
+
+## Authentication Providers
+
+### Get Auth Providers
+
+Retrieves all available authentication providers.
+
+**Endpoint:** `GET /Auth/Providers`
+
+**Authorization:** Required (Administrator with elevated privileges)
+
+#### Response
+
+Returns an array of name-ID pairs for available authentication providers.
+
+#### Example Request
+
+```bash
+curl -X GET "https://your-server.com/Auth/Providers" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_TOKEN"
+```
+
+#### Example Response
+
+```json
+[
+  {
+    "Name": "Default",
+    "Id": "Jellyfin.Server.Implementations.Users.DefaultAuthenticationProvider"
+  },
+  {
+    "Name": "LDAP",
+    "Id": "Jellyfin.Plugin.LDAP_Authentication.LdapAuthenticationProvider"
+  }
+]
+```
+
+---
+
+### Get Password Reset Providers
+
+Retrieves all available password reset providers.
+
+**Endpoint:** `GET /Auth/PasswordResetProviders`
+
+**Authorization:** Required (Administrator with elevated privileges)
+
+#### Example Request
+
+```bash
+curl -X GET "https://your-server.com/Auth/PasswordResetProviders" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_TOKEN"
+```
+
+---
+
+## Session Concepts
+
+### Session Lifecycle
+
+1. **Creation**: Session created when user authenticates
+2. **Capability Reporting**: Client reports its capabilities
+3. **Activity**: Client sends periodic heartbeats and activity updates
+4. **Termination**: Session ends via logout or timeout
+
+### Ticks and Time
+
+Jellyfin uses "ticks" for time measurements:
+- 1 tick = 100 nanoseconds
+- 10,000 ticks = 1 millisecond
+- 10,000,000 ticks = 1 second
+- 600,000,000 ticks = 1 minute
+
+**Example conversions:**
+- 30 seconds = 300,000,000 ticks
+- 5 minutes = 3,000,000,000 ticks
+- 1 hour = 36,000,000,000 ticks
+
+### Remote Control
+
+For remote control to work:
+1. Target session must report `SupportsRemoteControl: true`
+2. Controlling user must have appropriate permissions
+3. Session must be active (recent activity)
+
+### Supported Commands
+
+Common playstate commands:
+- Stop, Pause, Unpause
+- Seek, NextTrack, PreviousTrack
+- FastForward, Rewind
+
+Common system commands:
+- VolumeUp, VolumeDown, Mute, Unmute, ToggleMute, SetVolume
+
+Common general commands:
+- DisplayContent, GoHome, GoToSettings
+- MoveUp, MoveDown, MoveLeft, MoveRight
+- PageUp, PageDown, Select, Back

@@ -1,0 +1,447 @@
+---
+title: "Server Configuration"
+description: "API endpoints for managing Jellyfin server configuration"
+---
+
+## Overview
+
+The Server Configuration API provides endpoints to retrieve and update server configuration settings. These endpoints allow administrators to manage server behavior, metadata options, branding, and other system-wide settings.
+
+## Get Server Configuration
+
+Retrieves the complete server configuration.
+
+### Endpoint
+
+```
+GET /System/Configuration
+```
+
+### Authentication
+
+Required. Any authenticated user can retrieve the configuration.
+
+### Response
+
+Returns a `ServerConfiguration` object with all server settings.
+
+<Expandable title="Configuration Fields">
+  <ResponseField name="ServerName" type="string">
+    The name of the server
+  </ResponseField>
+
+  <ResponseField name="EnableMetrics" type="boolean" default="false">
+    Whether to enable Prometheus metrics exporting
+  </ResponseField>
+
+  <ResponseField name="QuickConnectAvailable" type="boolean" default="true">
+    Whether Quick Connect is available for use
+  </ResponseField>
+
+  <ResponseField name="MetadataPath" type="string">
+    The path where metadata is stored
+  </ResponseField>
+
+  <ResponseField name="PreferredMetadataLanguage" type="string" default="en">
+    The preferred language for metadata
+  </ResponseField>
+
+  <ResponseField name="MetadataCountryCode" type="string" default="US">
+    The country code for metadata
+  </ResponseField>
+
+  <ResponseField name="UICulture" type="string" default="en-US">
+    The UI culture/locale
+  </ResponseField>
+
+  <ResponseField name="MinResumePct" type="integer" default="5">
+    Minimum percentage of an item that must be played to update playstate
+  </ResponseField>
+
+  <ResponseField name="MaxResumePct" type="integer" default="90">
+    Maximum percentage that can be played while still saving playstate
+  </ResponseField>
+
+  <ResponseField name="MinResumeDurationSeconds" type="integer" default="300">
+    Minimum duration (in seconds) for an item to be eligible for playstate updates
+  </ResponseField>
+
+  <ResponseField name="MinAudiobookResume" type="integer" default="5">
+    Minimum minutes of an audiobook that must be played to update playstate
+  </ResponseField>
+
+  <ResponseField name="MaxAudiobookResume" type="integer" default="5">
+    Remaining minutes of an audiobook that can be played while still saving playstate
+  </ResponseField>
+
+  <ResponseField name="InactiveSessionThreshold" type="integer" default="0">
+    Threshold in minutes after which inactive sessions are closed (0 to disable)
+  </ResponseField>
+
+  <ResponseField name="LibraryMonitorDelay" type="integer" default="60">
+    Delay in seconds to wait after filesystem changes before discovering additions/removals
+  </ResponseField>
+
+  <ResponseField name="LibraryUpdateDuration" type="integer" default="30">
+    Duration in seconds to wait after library update before executing notification
+  </ResponseField>
+
+  <ResponseField name="CacheSize" type="integer">
+    Maximum number of items to cache
+  </ResponseField>
+
+  <ResponseField name="MetadataOptions" type="array">
+    Metadata configuration for different item types
+  </ResponseField>
+
+  <ResponseField name="RemoteClientBitrateLimit" type="integer">
+    Bitrate limit for remote clients
+  </ResponseField>
+
+  <ResponseField name="EnableFolderView" type="boolean" default="false">
+    Whether to enable folder view
+  </ResponseField>
+
+  <ResponseField name="EnableGroupingMoviesIntoCollections" type="boolean" default="false">
+    Whether to group movies into collections
+  </ResponseField>
+
+  <ResponseField name="EnableGroupingShowsIntoCollections" type="boolean" default="false">
+    Whether to group TV shows into collections
+  </ResponseField>
+
+  <ResponseField name="DisplaySpecialsWithinSeasons" type="boolean" default="true">
+    Whether to display special episodes within seasons
+  </ResponseField>
+
+  <ResponseField name="EnableExternalContentInSuggestions" type="boolean" default="true">
+    Whether to include external content in suggestions
+  </ResponseField>
+
+  <ResponseField name="EnableSlowResponseWarning" type="boolean" default="true">
+    Whether to log slow server responses as warnings
+  </ResponseField>
+
+  <ResponseField name="SlowResponseThresholdMs" type="integer" default="500">
+    Threshold for slow response time warning (in milliseconds)
+  </ResponseField>
+
+  <ResponseField name="CorsHosts" type="array" default='["*"]'>
+    Array of allowed CORS hosts
+  </ResponseField>
+
+  <ResponseField name="ActivityLogRetentionDays" type="integer" default="30">
+    Number of days to retain activity logs
+  </ResponseField>
+
+  <ResponseField name="LibraryScanFanoutConcurrency" type="integer">
+    How the library scan fans out for concurrent operations
+  </ResponseField>
+
+  <ResponseField name="LibraryMetadataRefreshConcurrency" type="integer">
+    How many metadata refreshes can run concurrently
+  </ResponseField>
+
+  <ResponseField name="AllowClientLogUpload" type="boolean" default="true">
+    Whether clients are allowed to upload logs
+  </ResponseField>
+
+  <ResponseField name="DummyChapterDuration" type="integer">
+    Dummy chapter duration in seconds (0 or less to disable)
+  </ResponseField>
+
+  <ResponseField name="ChapterImageResolution" type="string" default="MatchSource">
+    Resolution for chapter images
+  </ResponseField>
+
+  <ResponseField name="ParallelImageEncodingLimit" type="integer">
+    Limit for parallel image encoding
+  </ResponseField>
+
+  <ResponseField name="CastReceiverApplications" type="array">
+    List of cast receiver applications
+  </ResponseField>
+
+  <ResponseField name="TrickplayOptions" type="object">
+    Configuration for trickplay (preview thumbnails)
+  </ResponseField>
+
+  <ResponseField name="EnableLegacyAuthorization" type="boolean" default="false">
+    Whether to enable old authorization methods
+  </ResponseField>
+</Expandable>
+
+### Example Request
+
+```bash
+curl -X GET "https://your-jellyfin-server/System/Configuration" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+### Example Response
+
+```json
+{
+  "ServerName": "My Jellyfin Server",
+  "EnableMetrics": false,
+  "QuickConnectAvailable": true,
+  "MetadataPath": "/config/metadata",
+  "PreferredMetadataLanguage": "en",
+  "MetadataCountryCode": "US",
+  "UICulture": "en-US",
+  "MinResumePct": 5,
+  "MaxResumePct": 90,
+  "MinResumeDurationSeconds": 300,
+  "LibraryMonitorDelay": 60,
+  "EnableFolderView": false,
+  "DisplaySpecialsWithinSeasons": true,
+  "CorsHosts": ["*"],
+  "ActivityLogRetentionDays": 30,
+  "AllowClientLogUpload": true
+}
+```
+
+### Response Codes
+
+- `200` - Configuration retrieved successfully
+
+---
+
+## Update Server Configuration
+
+Updates the complete server configuration.
+
+### Endpoint
+
+```
+POST /System/Configuration
+```
+
+### Authentication
+
+Required. User must have elevated permissions (administrator).
+
+### Request Body
+
+Send a complete `ServerConfiguration` object with the desired settings.
+
+<ParamField body="configuration" type="object" required>
+  Complete ServerConfiguration object with updated values
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X POST "https://your-jellyfin-server/System/Configuration" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ServerName": "My Updated Server",
+    "EnableMetrics": true,
+    "PreferredMetadataLanguage": "en",
+    "MetadataCountryCode": "US",
+    "MinResumePct": 5,
+    "MaxResumePct": 90
+  }'
+```
+
+### Response Codes
+
+- `204` - Configuration updated successfully
+- `403` - User does not have permission to update configuration
+
+---
+
+## Get Named Configuration
+
+Retrieves a specific named configuration section.
+
+### Endpoint
+
+```
+GET /System/Configuration/{key}
+```
+
+### Authentication
+
+Required.
+
+### Path Parameters
+
+<ParamField path="key" type="string" required>
+  The configuration key/section name (e.g., "branding", "encoding")
+</ParamField>
+
+### Response
+
+Returns the configuration object for the specified key.
+
+### Example Request
+
+```bash
+curl -X GET "https://your-jellyfin-server/System/Configuration/branding" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+### Example Response
+
+```json
+{
+  "LoginDisclaimer": "Welcome to My Jellyfin Server",
+  "CustomCss": "",
+  "SplashscreenEnabled": false
+}
+```
+
+### Response Codes
+
+- `200` - Configuration retrieved successfully
+
+---
+
+## Update Named Configuration
+
+Updates a specific named configuration section.
+
+### Endpoint
+
+```
+POST /System/Configuration/{key}
+```
+
+### Authentication
+
+Required. User must have elevated permissions (administrator).
+
+### Path Parameters
+
+<ParamField path="key" type="string" required>
+  The configuration key/section name
+</ParamField>
+
+### Request Body
+
+<ParamField body="configuration" type="object" required>
+  Configuration object with updated values
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X POST "https://your-jellyfin-server/System/Configuration/branding" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "LoginDisclaimer": "Welcome!",
+    "CustomCss": "body { background-color: #000; }",
+    "SplashscreenEnabled": true
+  }'
+```
+
+### Response Codes
+
+- `204` - Configuration updated successfully
+- `403` - User does not have permission to update configuration
+
+---
+
+## Get Default Metadata Options
+
+Retrieves the default MetadataOptions object.
+
+### Endpoint
+
+```
+GET /System/Configuration/MetadataOptions/Default
+```
+
+### Authentication
+
+Required. User must have elevated permissions (administrator).
+
+### Response
+
+Returns a default `MetadataOptions` object.
+
+### Example Request
+
+```bash
+curl -X GET "https://your-jellyfin-server/System/Configuration/MetadataOptions/Default" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+### Example Response
+
+```json
+{
+  "ItemType": "",
+  "DisabledMetadataSavers": [],
+  "LocalMetadataReaderOrder": [],
+  "DisabledMetadataFetchers": [],
+  "MetadataFetcherOrder": [],
+  "DisabledImageFetchers": [],
+  "ImageFetcherOrder": []
+}
+```
+
+### Response Codes
+
+- `200` - Default metadata options retrieved successfully
+- `403` - User does not have permission
+
+---
+
+## Update Branding Configuration
+
+Updates the branding configuration for the server.
+
+### Endpoint
+
+```
+POST /System/Configuration/Branding
+```
+
+### Authentication
+
+Required. User must have elevated permissions (administrator).
+
+### Request Body
+
+<ParamField body="LoginDisclaimer" type="string">
+  Custom text to display on the login page
+</ParamField>
+
+<ParamField body="CustomCss" type="string">
+  Custom CSS to apply to the web interface
+</ParamField>
+
+<ParamField body="SplashscreenEnabled" type="boolean">
+  Whether to enable the custom splashscreen
+</ParamField>
+
+### Example Request
+
+```bash
+curl -X POST "https://your-jellyfin-server/System/Configuration/Branding" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "LoginDisclaimer": "Welcome to My Custom Server!",
+    "CustomCss": ".header { color: blue; }",
+    "SplashscreenEnabled": true
+  }'
+```
+
+### Response Codes
+
+- `204` - Branding configuration updated successfully
+- `403` - User does not have permission to update branding configuration
+
+---
+
+## Notes
+
+- Configuration changes may require a server restart to take full effect
+- Always retrieve the current configuration before updating to avoid overwriting unintended settings
+- Some configuration options affect server performance and should be adjusted carefully
+- Branding configuration updates only modify the specified properties and preserve other settings

@@ -1,0 +1,351 @@
+---
+title: 'Live TV Channels'
+description: 'Endpoints for managing and retrieving Live TV channel information'
+---
+
+## Get Live TV Channels
+
+Retrieves a list of available live TV channels with optional filtering and sorting.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://your-server/LiveTv/Channels?limit=50&addCurrentProgram=true" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  GET
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/Channels`
+</ParamField>
+
+### Authentication
+
+Requires `LiveTvAccess` policy authorization.
+
+### Query Parameters
+
+<ParamField query="type" type="ChannelType">
+  Filter by channel type (TV or Radio)
+</ParamField>
+
+<ParamField query="userId" type="string (Guid)">
+  Filter by user and attach user data
+</ParamField>
+
+<ParamField query="startIndex" type="integer">
+  The record index to start at. All items with a lower index will be dropped from the results
+</ParamField>
+
+<ParamField query="limit" type="integer">
+  The maximum number of records to return
+</ParamField>
+
+<ParamField query="isMovie" type="boolean">
+  Filter for movies
+</ParamField>
+
+<ParamField query="isSeries" type="boolean">
+  Filter for series
+</ParamField>
+
+<ParamField query="isNews" type="boolean">
+  Filter for news
+</ParamField>
+
+<ParamField query="isKids" type="boolean">
+  Filter for kids content
+</ParamField>
+
+<ParamField query="isSports" type="boolean">
+  Filter for sports
+</ParamField>
+
+<ParamField query="isFavorite" type="boolean">
+  Filter by channels that are favorites, or not
+</ParamField>
+
+<ParamField query="isLiked" type="boolean">
+  Filter by channels that are liked, or not
+</ParamField>
+
+<ParamField query="isDisliked" type="boolean">
+  Filter by channels that are disliked, or not
+</ParamField>
+
+<ParamField query="enableImages" type="boolean">
+  Include image information in output
+</ParamField>
+
+<ParamField query="imageTypeLimit" type="integer">
+  The max number of images to return, per image type
+</ParamField>
+
+<ParamField query="enableImageTypes" type="array">
+  The image types to include in the output (comma-delimited)
+</ParamField>
+
+<ParamField query="fields" type="array">
+  Additional fields of information to return in the output (comma-delimited)
+</ParamField>
+
+<ParamField query="enableUserData" type="boolean">
+  Include user data
+</ParamField>
+
+<ParamField query="sortBy" type="array">
+  Key to sort by (comma-delimited)
+</ParamField>
+
+<ParamField query="sortOrder" type="string">
+  Sort order: `Ascending` or `Descending`
+</ParamField>
+
+<ParamField query="enableFavoriteSorting" type="boolean" default="false">
+  Incorporate favorite and like status into channel sorting
+</ParamField>
+
+<ParamField query="addCurrentProgram" type="boolean" default="true">
+  Adds current program info to each channel
+</ParamField>
+
+### Response
+
+<ResponseField name="Items" type="array">
+  Array of channel items
+  <Expandable title="Channel Item Properties">
+    <ResponseField name="Id" type="string (Guid)">
+      Unique identifier for the channel
+    </ResponseField>
+    <ResponseField name="Name" type="string">
+      Channel name
+    </ResponseField>
+    <ResponseField name="ChannelNumber" type="string">
+      Channel number
+    </ResponseField>
+    <ResponseField name="Type" type="string">
+      Item type (e.g., "Channel")
+    </ResponseField>
+    <ResponseField name="CurrentProgram" type="object">
+      Currently airing program information (if addCurrentProgram=true)
+    </ResponseField>
+    <ResponseField name="ImageTags" type="object">
+      Image tags for the channel
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="TotalRecordCount" type="integer">
+  Total number of available channels
+</ResponseField>
+
+<ResponseField name="StartIndex" type="integer">
+  Starting index of the returned results
+</ResponseField>
+
+### Status Codes
+
+- `200` - Available live TV channels returned successfully
+- `401` - Unauthorized (missing or invalid authentication)
+- `403` - Forbidden (user lacks LiveTvAccess policy)
+
+---
+
+## Get Live TV Channel
+
+Retrieves detailed information about a specific live TV channel.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://your-server/LiveTv/Channels/{channelId}" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  GET
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/Channels/{channelId}`
+</ParamField>
+
+### Authentication
+
+Requires `LiveTvAccess` policy authorization.
+
+### Path Parameters
+
+<ParamField path="channelId" type="string (Guid)" required>
+  The channel ID
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="userId" type="string (Guid)">
+  Attach user data for this user
+</ParamField>
+
+### Response
+
+<ResponseField name="BaseItemDto" type="object">
+  Detailed channel information
+  <Expandable title="Properties">
+    <ResponseField name="Id" type="string (Guid)">
+      Unique identifier for the channel
+    </ResponseField>
+    <ResponseField name="Name" type="string">
+      Channel name
+    </ResponseField>
+    <ResponseField name="ChannelNumber" type="string">
+      Channel number
+    </ResponseField>
+    <ResponseField name="Type" type="string">
+      Item type
+    </ResponseField>
+    <ResponseField name="ServerId" type="string">
+      Server identifier
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Status Codes
+
+- `200` - Live TV channel returned successfully
+- `404` - Channel not found
+- `401` - Unauthorized
+- `403` - Forbidden
+
+---
+
+## Get Channel Mapping Options
+
+Retrieves available channel mapping options for a listings provider.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://your-server/LiveTv/ChannelMappingOptions?providerId=PROVIDER_ID" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  GET
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/ChannelMappingOptions`
+</ParamField>
+
+### Authentication
+
+Requires `LiveTvAccess` policy authorization.
+
+### Query Parameters
+
+<ParamField query="providerId" type="string">
+  The provider ID to get mapping options for
+</ParamField>
+
+### Response
+
+<ResponseField name="ChannelMappingOptionsDto" type="object">
+  Channel mapping options
+  <Expandable title="Properties">
+    <ResponseField name="TunerChannels" type="array">
+      Available tuner channels
+    </ResponseField>
+    <ResponseField name="ProviderChannels" type="array">
+      Available provider channels
+    </ResponseField>
+    <ResponseField name="Mappings" type="array">
+      Existing channel mappings
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Status Codes
+
+- `200` - Channel mapping options returned successfully
+- `401` - Unauthorized
+- `403` - Forbidden
+
+---
+
+## Set Channel Mappings
+
+Creates or updates channel mappings between tuner channels and provider channels.
+
+<CodeGroup>
+```bash cURL
+curl -X POST "https://your-server/LiveTv/ChannelMappings" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "providerId": "provider-id",
+    "tunerChannelId": "tuner-channel-id",
+    "providerChannelId": "provider-channel-id"
+  }'
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  POST
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/ChannelMappings`
+</ParamField>
+
+### Authentication
+
+Requires `LiveTvManagement` policy authorization.
+
+### Request Body
+
+<ParamField body="providerId" type="string" required>
+  The provider ID
+</ParamField>
+
+<ParamField body="tunerChannelId" type="string" required>
+  The tuner channel ID
+</ParamField>
+
+<ParamField body="providerChannelId" type="string" required>
+  The provider channel ID
+</ParamField>
+
+### Response
+
+<ResponseField name="TunerChannelMapping" type="object">
+  Created channel mapping information
+  <Expandable title="Properties">
+    <ResponseField name="Id" type="string">
+      Mapping identifier
+    </ResponseField>
+    <ResponseField name="TunerChannelId" type="string">
+      Tuner channel ID
+    </ResponseField>
+    <ResponseField name="ProviderChannelId" type="string">
+      Provider channel ID
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Status Codes
+
+- `200` - Channel mapping created successfully
+- `401` - Unauthorized
+- `403` - Forbidden (requires LiveTvManagement policy)
+- `400` - Bad request (invalid data)

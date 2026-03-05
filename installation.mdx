@@ -1,0 +1,798 @@
+---
+title: Installation Guide
+description: Detailed installation instructions for Jellyfin Server on all platforms
+---
+
+# Installation Guide
+
+This guide provides comprehensive installation instructions for Jellyfin Server across different platforms and deployment scenarios.
+
+<Info>
+For a quick start, see the [Quickstart Guide](/quickstart). This guide covers production-ready installations.
+</Info>
+
+## Prerequisites
+
+Before installing Jellyfin Server, ensure you have:
+
+- **.NET 9.0 SDK** - Required for building from source
+- **FFmpeg** - Required for media transcoding and processing
+- **Minimum 2GB RAM** - Recommended 4GB+ for larger libraries
+- **Sufficient storage** - For media, metadata, and transcoding cache
+
+## Installation Methods
+
+<Tabs>
+  <Tab title="Docker">
+    Docker is the recommended method for most deployments.
+
+    ### Basic Docker Installation
+
+    <Steps>
+      <Step title="Install Docker">
+        <CodeGroup>
+        ```bash Linux
+        curl -fsSL https://get.docker.com -o get-docker.sh
+        sudo sh get-docker.sh
+        sudo usermod -aG docker $USER
+        ```
+
+        ```bash macOS
+        brew install docker
+        # Or download Docker Desktop from docker.com
+        ```
+
+        ```powershell Windows
+        # Download and install Docker Desktop from docker.com
+        # Or use winget:
+        winget install Docker.DockerDesktop
+        ```
+        </CodeGroup>
+      </Step>
+
+      <Step title="Pull Jellyfin Image">
+        ```bash
+        docker pull jellyfin/jellyfin:latest
+        ```
+
+        For a specific version:
+        ```bash
+        docker pull jellyfin/jellyfin:10.9.0
+        ```
+      </Step>
+
+      <Step title="Create Directories">
+        ```bash
+        mkdir -p /opt/jellyfin/config
+        mkdir -p /opt/jellyfin/cache
+        ```
+      </Step>
+
+      <Step title="Run Container">
+        ```bash
+        docker run -d \
+          --name jellyfin \
+          --user 1000:1000 \
+          --net=host \
+          --volume /opt/jellyfin/config:/config \
+          --volume /opt/jellyfin/cache:/cache \
+          --mount type=bind,source=/path/to/media,target=/media \
+          --restart=unless-stopped \
+          jellyfin/jellyfin:latest
+        ```
+
+        <Note>
+        Replace `/path/to/media` with your actual media directory path.
+        </Note>
+      </Step>
+    </Steps>
+
+    ### Docker Compose (Recommended)
+
+    Create a `docker-compose.yml` file:
+
+    ```yaml docker-compose.yml
+    version: '3.8'
+    
+    services:
+      jellyfin:
+        image: jellyfin/jellyfin:latest
+        container_name: jellyfin
+        user: 1000:1000
+        network_mode: host
+        volumes:
+          - ./config:/config
+          - ./cache:/cache
+          - /path/to/media:/media
+          - /path/to/media2:/media2:ro  # Optional, read-only
+        restart: unless-stopped
+        environment:
+          - JELLYFIN_PublishedServerUrl=http://example.com
+        # Optional: Hardware acceleration
+        devices:
+          - /dev/dri:/dev/dri  # For Intel QuickSync
+          # - /dev/nvidia0:/dev/nvidia0  # For NVIDIA
+    ```
+
+    Start the services:
+    ```bash
+    docker-compose up -d
+    ```
+
+    View logs:
+    ```bash
+    docker-compose logs -f jellyfin
+    ```
+
+    ### Hardware Acceleration with Docker
+
+    <Tabs>
+      <Tab title="Intel QuickSync">
+        ```yaml
+        services:
+          jellyfin:
+            devices:
+              - /dev/dri:/dev/dri
+            group_add:
+              - "109"  # render group ID
+        ```
+      </Tab>
+
+      <Tab title="NVIDIA GPU">
+        Install NVIDIA Container Toolkit first:
+        ```bash
+        distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+        curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
+        curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | \
+          sudo tee /etc/apt/sources.list.d/nvidia-docker.list
+        sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
+        sudo systemctl restart docker
+        ```
+
+        Then add to docker-compose.yml:
+        ```yaml
+        services:
+          jellyfin:
+            runtime: nvidia
+            environment:
+              - NVIDIA_VISIBLE_DEVICES=all
+        ```
+      </Tab>
+
+      <Tab title="AMD GPU">
+        ```yaml
+        services:
+          jellyfin:
+            devices:
+              - /dev/dri:/dev/dri
+            group_add:
+              - "109"  # render group ID
+        ```
+      </Tab>
+    </Tabs>
+  </Tab>
+
+  <Tab title="Linux">
+    Installation instructions for various Linux distributions.
+
+    ### Ubuntu/Debian
+
+    <Steps>
+      <Step title="Install Dependencies">
+        ```bash
+        sudo apt update
+        sudo apt install -y curl gnupg software-properties-common
+        ```
+      </Step>
+
+      <Step title="Install .NET 9.0 SDK">
+        ```bash
+        wget https://dot.net/v1/dotnet-install.sh
+        chmod +x dotnet-install.sh
+        sudo ./dotnet-install.sh --channel 9.0 --install-dir /usr/share/dotnet
+        
+        # Add to PATH
+        echo 'export PATH=$PATH:/usr/share/dotnet' >> ~/.bashrc
+        source ~/.bashrc
+        
+        # Verify
+        dotnet --version
+        ```
+      </Step>
+
+      <Step title="Install Jellyfin FFmpeg">
+        Add Jellyfin repository for optimized FFmpeg:
+
+        ```bash
+        sudo add-apt-repository universe -y
+        sudo mkdir -p /etc/apt/keyrings
+        
+        curl -fsSL https://repo.jellyfin.org/jellyfin_team.gpg.key | \
+          sudo gpg --dearmor -o /etc/apt/keyrings/jellyfin.gpg
+        
+        export VERSION_OS="$(awk -F'=' '/^ID=/{ print $NF }' /etc/os-release)"
+        export VERSION_CODENAME="$(awk -F'=' '/^VERSION_CODENAME=/{ print $NF }' /etc/os-release)"
+        export DPKG_ARCHITECTURE="$(dpkg --print-architecture)"
+        
+        cat <<EOF | sudo tee /etc/apt/sources.list.d/jellyfin.sources
+        Types: deb
+        URIs: https://repo.jellyfin.org/${VERSION_OS}
+        Suites: ${VERSION_CODENAME}
+        Components: main
+        Architectures: ${DPKG_ARCHITECTURE}
+        Signed-By: /etc/apt/keyrings/jellyfin.gpg
+        EOF
+        
+        sudo apt update
+        sudo apt install jellyfin-ffmpeg7 -y
+        ```
+      </Step>
+
+      <Step title="Clone and Build Jellyfin">
+        ```bash
+        git clone https://github.com/jellyfin/jellyfin.git
+        cd jellyfin
+        
+        # Build release version
+        dotnet build --configuration Release
+        
+        # Create installation directory
+        sudo mkdir -p /opt/jellyfin
+        sudo cp -r Jellyfin.Server/bin/Release/net10.0/* /opt/jellyfin/
+        ```
+      </Step>
+
+      <Step title="Create Systemd Service">
+        Create `/etc/systemd/system/jellyfin.service`:
+
+        ```ini /etc/systemd/system/jellyfin.service
+        [Unit]
+        Description=Jellyfin Media Server
+        After=network.target
+        
+        [Service]
+        Type=simple
+        User=jellyfin
+        Group=jellyfin
+        WorkingDirectory=/opt/jellyfin
+        ExecStart=/usr/share/dotnet/dotnet /opt/jellyfin/jellyfin.dll --datadir=/var/lib/jellyfin
+        Restart=on-failure
+        TimeoutSec=15
+        
+        [Install]
+        WantedBy=multi-user.target
+        ```
+
+        Create user and directories:
+        ```bash
+        sudo useradd -r -s /bin/false jellyfin
+        sudo mkdir -p /var/lib/jellyfin
+        sudo chown -R jellyfin:jellyfin /var/lib/jellyfin
+        sudo chown -R jellyfin:jellyfin /opt/jellyfin
+        ```
+
+        Enable and start:
+        ```bash
+        sudo systemctl daemon-reload
+        sudo systemctl enable jellyfin
+        sudo systemctl start jellyfin
+        ```
+      </Step>
+    </Steps>
+
+    ### Fedora/CentOS/RHEL
+
+    ```bash
+    # Install .NET
+    sudo dnf install dotnet-sdk-9.0
+    
+    # Install FFmpeg from RPM Fusion
+    sudo dnf install https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
+    sudo dnf install ffmpeg
+    
+    # Clone and build (same as Ubuntu steps above)
+    git clone https://github.com/jellyfin/jellyfin.git
+    cd jellyfin
+    dotnet build --configuration Release
+    ```
+
+    ### Arch Linux
+
+    ```bash
+    # Install dependencies
+    sudo pacman -S dotnet-sdk ffmpeg
+    
+    # Or install from AUR
+    yay -S jellyfin-server-git
+    ```
+  </Tab>
+
+  <Tab title="Windows">
+    Installation on Windows systems.
+
+    <Steps>
+      <Step title="Install .NET 9.0 SDK">
+        Download and install from Microsoft:
+        
+        ```powershell
+        # Using winget
+        winget install Microsoft.DotNet.SDK.9
+        
+        # Or download installer from:
+        # https://dotnet.microsoft.com/download/dotnet/9.0
+        ```
+
+        Verify installation:
+        ```powershell
+        dotnet --version
+        ```
+      </Step>
+
+      <Step title="Install FFmpeg">
+        <Tabs>
+          <Tab title="Using Package Manager">
+            ```powershell
+            # Using Chocolatey
+            choco install ffmpeg
+            
+            # Using Scoop
+            scoop install ffmpeg
+            ```
+          </Tab>
+
+          <Tab title="Manual Installation">
+            1. Download FFmpeg from https://www.gyan.dev/ffmpeg/builds/
+            2. Extract to `C:\ffmpeg`
+            3. Add `C:\ffmpeg\bin` to System PATH
+            4. Verify:
+            ```powershell
+            ffmpeg -version
+            ```
+          </Tab>
+        </Tabs>
+      </Step>
+
+      <Step title="Clone Repository">
+        ```powershell
+        git clone https://github.com/jellyfin/jellyfin.git
+        cd jellyfin
+        ```
+      </Step>
+
+      <Step title="Build Jellyfin">
+        ```powershell
+        # Build release version
+        dotnet build --configuration Release
+        
+        # Navigate to build output
+        cd Jellyfin.Server\bin\Release\net10.0
+        ```
+      </Step>
+
+      <Step title="Run Server">
+        ```powershell
+        .\jellyfin.exe
+        ```
+
+        Or install as Windows Service using NSSM:
+        ```powershell
+        # Download NSSM from https://nssm.cc/download
+        nssm install Jellyfin "C:\Path\To\jellyfin.exe"
+        nssm start Jellyfin
+        ```
+      </Step>
+    </Steps>
+
+    ### Running as Windows Service
+
+    Using NSSM (Non-Sucking Service Manager):
+
+    ```powershell
+    # Install NSSM
+    choco install nssm
+    
+    # Install Jellyfin service
+    nssm install Jellyfin "C:\Program Files\Jellyfin\Server\jellyfin.exe"
+    nssm set Jellyfin AppDirectory "C:\Program Files\Jellyfin\Server"
+    nssm set Jellyfin AppParameters "--datadir C:\ProgramData\Jellyfin\Server"
+    
+    # Start service
+    nssm start Jellyfin
+    ```
+  </Tab>
+
+  <Tab title="macOS">
+    Installation on macOS systems.
+
+    <Steps>
+      <Step title="Install Homebrew">
+        If not already installed:
+        ```bash
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        ```
+      </Step>
+
+      <Step title="Install Dependencies">
+        ```bash
+        # Install .NET SDK
+        brew install dotnet@9
+        
+        # Install FFmpeg
+        brew install ffmpeg
+        
+        # Verify installations
+        dotnet --version
+        ffmpeg -version
+        ```
+      </Step>
+
+      <Step title="Clone and Build">
+        ```bash
+        git clone https://github.com/jellyfin/jellyfin.git
+        cd jellyfin
+        
+        # Build
+        dotnet build --configuration Release
+        ```
+      </Step>
+
+      <Step title="Run Server">
+        ```bash
+        cd Jellyfin.Server/bin/Release/net10.0
+        ./jellyfin
+        ```
+      </Step>
+
+      <Step title="Create Launch Daemon (Optional)">
+        Create `~/Library/LaunchAgents/jellyfin.plist`:
+
+        ```xml
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+            <key>Label</key>
+            <string>jellyfin</string>
+            <key>ProgramArguments</key>
+            <array>
+                <string>/usr/local/share/dotnet/dotnet</string>
+                <string>/path/to/jellyfin/Jellyfin.Server/bin/Release/net10.0/jellyfin.dll</string>
+            </array>
+            <key>RunAtLoad</key>
+            <true/>
+            <key>KeepAlive</key>
+            <true/>
+        </dict>
+        </plist>
+        ```
+
+        Load the service:
+        ```bash
+        launchctl load ~/Library/LaunchAgents/jellyfin.plist
+        ```
+      </Step>
+    </Steps>
+  </Tab>
+
+  <Tab title="From Source (Advanced)">
+    Building from source for development or custom deployments.
+
+    ### Prerequisites
+
+    - .NET 9.0 SDK
+    - Git
+    - FFmpeg
+    - Node.js (optional, for web client)
+
+    ### Build Steps
+
+    <Steps>
+      <Step title="Clone Repository">
+        ```bash
+        git clone https://github.com/jellyfin/jellyfin.git
+        cd jellyfin
+        ```
+      </Step>
+
+      <Step title="Restore Dependencies">
+        ```bash
+        dotnet restore
+        ```
+      </Step>
+
+      <Step title="Build Project">
+        ```bash
+        # Debug build
+        dotnet build
+        
+        # Release build
+        dotnet build --configuration Release
+        ```
+      </Step>
+
+      <Step title="Run from Build Output">
+        ```bash
+        cd Jellyfin.Server/bin/Release/net10.0
+        ./jellyfin
+        ```
+
+        Or run directly:
+        ```bash
+        dotnet run --project Jellyfin.Server --configuration Release
+        ```
+      </Step>
+    </Steps>
+
+    ### Build with Web Client
+
+    <Steps>
+      <Step title="Clone Web Client">
+        ```bash
+        git clone https://github.com/jellyfin/jellyfin-web.git
+        cd jellyfin-web
+        ```
+      </Step>
+
+      <Step title="Build Web Client">
+        ```bash
+        npm ci
+        npm run build:production
+        ```
+      </Step>
+
+      <Step title="Link to Server">
+        ```bash
+        # Copy web client dist to server wwwroot
+        cp -r dist ../jellyfin/Jellyfin.Server/bin/Release/net10.0/jellyfin-web
+        ```
+
+        Or run server with web directory:
+        ```bash
+        dotnet run --project Jellyfin.Server -- --webdir /path/to/jellyfin-web/dist
+        ```
+      </Step>
+    </Steps>
+
+    ### Development Build
+
+    For active development:
+
+    ```bash
+    # Run with hot reload
+    dotnet watch --project Jellyfin.Server
+    
+    # Run without web client (faster startup)
+    dotnet run --project Jellyfin.Server -- --nowebclient
+    
+    # Run tests
+    dotnet test
+    
+    # Run specific test project
+    dotnet test tests/Jellyfin.Api.Tests
+    ```
+  </Tab>
+</Tabs>
+
+## Post-Installation Configuration
+
+### Directory Structure
+
+Jellyfin creates the following directories:
+
+```
+Jellyfin Data Directory/
+├── config/           # Configuration files
+├── cache/            # Temporary cache files
+├── data/             # Database and metadata
+├── log/              # Log files
+└── transcodes/       # Transcoding temporary files
+```
+
+### Default Ports
+
+| Port | Protocol | Purpose |
+|------|----------|----------|
+| 8096 | HTTP | Web interface and API |
+| 8920 | HTTPS | Secure web interface (if configured) |
+| 1900 | UDP | Service discovery (DLNA) |
+| 7359 | UDP | Client discovery |
+
+### Firewall Configuration
+
+<Tabs>
+  <Tab title="Linux (ufw)">
+    ```bash
+    sudo ufw allow 8096/tcp
+    sudo ufw allow 8920/tcp
+    sudo ufw allow 1900/udp
+    sudo ufw allow 7359/udp
+    ```
+  </Tab>
+
+  <Tab title="Linux (firewalld)">
+    ```bash
+    sudo firewall-cmd --permanent --add-port=8096/tcp
+    sudo firewall-cmd --permanent --add-port=8920/tcp
+    sudo firewall-cmd --permanent --add-port=1900/udp
+    sudo firewall-cmd --permanent --add-port=7359/udp
+    sudo firewall-cmd --reload
+    ```
+  </Tab>
+
+  <Tab title="Windows">
+    ```powershell
+    # Allow inbound on port 8096
+    New-NetFirewallRule -DisplayName "Jellyfin HTTP" -Direction Inbound -Protocol TCP -LocalPort 8096 -Action Allow
+    New-NetFirewallRule -DisplayName "Jellyfin HTTPS" -Direction Inbound -Protocol TCP -LocalPort 8920 -Action Allow
+    ```
+  </Tab>
+</Tabs>
+
+## Verification
+
+Verify your installation:
+
+### Check Service Status
+
+<CodeGroup>
+```bash Linux (systemd)
+sudo systemctl status jellyfin
+```
+
+```bash Docker
+docker ps | grep jellyfin
+docker logs jellyfin
+```
+
+```powershell Windows
+Get-Service Jellyfin
+# Or with NSSM
+nssm status Jellyfin
+```
+</CodeGroup>
+
+### Test API
+
+```bash
+curl http://localhost:8096/System/Info/Public
+```
+
+Expected response:
+```json
+{
+  "LocalAddress": "http://localhost:8096",
+  "ServerName": "Jellyfin Server",
+  "Version": "10.9.0",
+  "ProductName": "Jellyfin Server",
+  "OperatingSystem": "Linux",
+  "StartupWizardCompleted": false
+}
+```
+
+### Access Web Interface
+
+Open your browser:
+```
+http://localhost:8096
+```
+
+You should see the Jellyfin setup wizard.
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Server won't start">
+    Check logs:
+    
+    ```bash
+    # Linux
+    sudo journalctl -u jellyfin -n 100
+    
+    # Docker
+    docker logs jellyfin
+    
+    # Manual installation
+    cat /var/lib/jellyfin/log/log_*.txt
+    ```
+  </Accordion>
+
+  <Accordion title="Permission errors">
+    Ensure the Jellyfin user has access to media directories:
+    
+    ```bash
+    sudo usermod -aG your-media-group jellyfin
+    sudo chmod -R 755 /path/to/media
+    ```
+  </Accordion>
+
+  <Accordion title="FFmpeg not found">
+    Verify FFmpeg installation:
+    
+    ```bash
+    ffmpeg -version
+    which ffmpeg
+    ```
+    
+    If not found, install using platform-specific instructions above.
+  </Accordion>
+
+  <Accordion title="Port already in use">
+    Change the listening port:
+    
+    ```bash
+    # Command line
+    ./jellyfin --port 8097
+    
+    # Environment variable
+    export JELLYFIN_PublishedServerUrl=http://localhost:8097
+    ```
+  </Accordion>
+
+  <Accordion title="Database connection errors">
+    Check database file permissions:
+    
+    ```bash
+    ls -la /var/lib/jellyfin/data/jellyfin.db
+    sudo chown jellyfin:jellyfin /var/lib/jellyfin/data/jellyfin.db
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Upgrading
+
+### Docker
+
+```bash
+# Pull latest image
+docker pull jellyfin/jellyfin:latest
+
+# Stop and remove old container
+docker stop jellyfin
+docker rm jellyfin
+
+# Start new container with same volumes
+docker run -d \
+  --name jellyfin \
+  --volume /opt/jellyfin/config:/config \
+  --volume /opt/jellyfin/cache:/cache \
+  --mount type=bind,source=/path/to/media,target=/media \
+  --restart=unless-stopped \
+  jellyfin/jellyfin:latest
+
+# Or with docker-compose
+docker-compose pull
+docker-compose up -d
+```
+
+### From Source
+
+```bash
+cd jellyfin
+git pull
+dotnet build --configuration Release
+sudo systemctl restart jellyfin
+```
+
+<Warning>
+Always backup your configuration and database before upgrading!
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Initial Setup" icon="gear" href="/quickstart#initial-setup-wizard">
+    Complete the setup wizard
+  </Card>
+  
+  <Card title="API Reference" icon="code" href="/api/authentication/overview">
+    Explore the REST API
+  </Card>
+  
+  <Card title="Configuration" icon="sliders" href="/setup/configuration">
+    Configure Jellyfin settings
+  </Card>
+  
+  <Card title="Plugins" icon="puzzle-piece" href="/concepts/plugins">
+    Extend functionality with plugins
+  </Card>
+</CardGroup>

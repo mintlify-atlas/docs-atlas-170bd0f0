@@ -1,0 +1,882 @@
+---
+title: 'Live TV Recordings'
+description: 'Endpoints for managing Live TV recordings, timers, and series timers'
+---
+
+## Get Recordings
+
+Retrieves a list of live TV recordings with optional filtering.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://your-server/LiveTv/Recordings?limit=50" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  GET
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/Recordings`
+</ParamField>
+
+### Authentication
+
+Requires `LiveTvAccess` policy authorization.
+
+### Query Parameters
+
+<ParamField query="channelId" type="string">
+  Filter by channel ID
+</ParamField>
+
+<ParamField query="userId" type="string (Guid)">
+  Filter by user and attach user data
+</ParamField>
+
+<ParamField query="startIndex" type="integer">
+  The record index to start at. All items with a lower index will be dropped from the results
+</ParamField>
+
+<ParamField query="limit" type="integer">
+  The maximum number of records to return
+</ParamField>
+
+<ParamField query="status" type="string">
+  Filter by recording status: `New`, `InProgress`, `Completed`, `Cancelled`, `ConflictedOk`, `ConflictedNotOk`, `Error`
+</ParamField>
+
+<ParamField query="isInProgress" type="boolean">
+  Filter by recordings that are in progress, or not
+</ParamField>
+
+<ParamField query="seriesTimerId" type="string">
+  Filter by recordings belonging to a series timer
+</ParamField>
+
+<ParamField query="enableImages" type="boolean">
+  Include image information in output
+</ParamField>
+
+<ParamField query="imageTypeLimit" type="integer">
+  The max number of images to return, per image type
+</ParamField>
+
+<ParamField query="enableImageTypes" type="array">
+  The image types to include in the output (comma-delimited)
+</ParamField>
+
+<ParamField query="fields" type="array">
+  Additional fields of information to return in the output (comma-delimited)
+</ParamField>
+
+<ParamField query="enableUserData" type="boolean">
+  Include user data
+</ParamField>
+
+<ParamField query="isMovie" type="boolean">
+  Filter for movies
+</ParamField>
+
+<ParamField query="isSeries" type="boolean">
+  Filter for series
+</ParamField>
+
+<ParamField query="isKids" type="boolean">
+  Filter for kids content
+</ParamField>
+
+<ParamField query="isSports" type="boolean">
+  Filter for sports
+</ParamField>
+
+<ParamField query="isNews" type="boolean">
+  Filter for news
+</ParamField>
+
+<ParamField query="isLibraryItem" type="boolean">
+  Filter for is library item
+</ParamField>
+
+<ParamField query="enableTotalRecordCount" type="boolean" default="true">
+  Return total record count
+</ParamField>
+
+### Response
+
+<ResponseField name="Items" type="array">
+  Array of recording items
+  <Expandable title="Recording Item Properties">
+    <ResponseField name="Id" type="string (Guid)">
+      Unique identifier for the recording
+    </ResponseField>
+    <ResponseField name="Name" type="string">
+      Recording name
+    </ResponseField>
+    <ResponseField name="ChannelId" type="string">
+      Channel ID
+    </ResponseField>
+    <ResponseField name="StartDate" type="string (DateTime)">
+      Recording start date and time
+    </ResponseField>
+    <ResponseField name="EndDate" type="string (DateTime)">
+      Recording end date and time
+    </ResponseField>
+    <ResponseField name="Status" type="string">
+      Recording status
+    </ResponseField>
+    <ResponseField name="SeriesTimerId" type="string">
+      Associated series timer ID
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="TotalRecordCount" type="integer">
+  Total number of recordings
+</ResponseField>
+
+<ResponseField name="StartIndex" type="integer">
+  Starting index of the returned results
+</ResponseField>
+
+### Status Codes
+
+- `200` - Live TV recordings returned successfully
+- `401` - Unauthorized
+- `403` - Forbidden
+
+---
+
+## Get Recording
+
+Retrieves detailed information about a specific live TV recording.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://your-server/LiveTv/Recordings/{recordingId}" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  GET
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/Recordings/{recordingId}`
+</ParamField>
+
+### Authentication
+
+Requires `LiveTvAccess` policy authorization.
+
+### Path Parameters
+
+<ParamField path="recordingId" type="string (Guid)" required>
+  The recording ID
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="userId" type="string (Guid)">
+  Attach user data for this user
+</ParamField>
+
+### Response
+
+<ResponseField name="BaseItemDto" type="object">
+  Detailed recording information including metadata, images, and playback info
+</ResponseField>
+
+### Status Codes
+
+- `200` - Recording returned successfully
+- `404` - Recording not found
+- `401` - Unauthorized
+- `403` - Forbidden
+
+---
+
+## Delete Recording
+
+Deletes a live TV recording.
+
+<CodeGroup>
+```bash cURL
+curl -X DELETE "https://your-server/LiveTv/Recordings/{recordingId}" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  DELETE
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/Recordings/{recordingId}`
+</ParamField>
+
+### Authentication
+
+Requires `LiveTvManagement` policy authorization.
+
+### Path Parameters
+
+<ParamField path="recordingId" type="string (Guid)" required>
+  The recording ID to delete
+</ParamField>
+
+### Status Codes
+
+- `204` - Recording deleted successfully
+- `404` - Recording not found
+- `401` - Unauthorized
+- `403` - Forbidden (requires LiveTvManagement policy)
+
+---
+
+## Get Recording Folders
+
+Retrieves the list of recording folders.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://your-server/LiveTv/Recordings/Folders" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  GET
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/Recordings/Folders`
+</ParamField>
+
+### Authentication
+
+Requires `LiveTvAccess` policy authorization.
+
+### Query Parameters
+
+<ParamField query="userId" type="string (Guid)">
+  Filter by user and attach user data
+</ParamField>
+
+### Response
+
+<ResponseField name="Items" type="array">
+  Array of folder items containing recording folders
+</ResponseField>
+
+<ResponseField name="TotalRecordCount" type="integer">
+  Total number of folders
+</ResponseField>
+
+### Status Codes
+
+- `200` - Recording folders returned successfully
+- `401` - Unauthorized
+- `403` - Forbidden
+
+---
+
+## Get Live Recording Stream
+
+Gets a stream of an active live recording.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://your-server/LiveTv/LiveRecordings/{recordingId}/stream" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  --output recording.ts
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  GET
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/LiveRecordings/{recordingId}/stream`
+</ParamField>
+
+### Path Parameters
+
+<ParamField path="recordingId" type="string" required>
+  The recording ID
+</ParamField>
+
+### Response
+
+Returns a video file stream of the active recording.
+
+### Status Codes
+
+- `200` - Recording stream returned successfully
+- `404` - Recording not found or not active
+
+---
+
+## Get Timers
+
+Retrieves a list of live TV timers (scheduled recordings).
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://your-server/LiveTv/Timers" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  GET
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/Timers`
+</ParamField>
+
+### Authentication
+
+Requires `LiveTvAccess` policy authorization.
+
+### Query Parameters
+
+<ParamField query="channelId" type="string">
+  Filter by channel ID
+</ParamField>
+
+<ParamField query="seriesTimerId" type="string">
+  Filter by timers belonging to a series timer
+</ParamField>
+
+<ParamField query="isActive" type="boolean">
+  Filter by timers that are active
+</ParamField>
+
+<ParamField query="isScheduled" type="boolean">
+  Filter by timers that are scheduled
+</ParamField>
+
+### Response
+
+<ResponseField name="Items" type="array">
+  Array of timer information
+  <Expandable title="Timer Properties">
+    <ResponseField name="Id" type="string">
+      Timer ID
+    </ResponseField>
+    <ResponseField name="ChannelId" type="string">
+      Channel ID
+    </ResponseField>
+    <ResponseField name="ProgramId" type="string">
+      Program ID
+    </ResponseField>
+    <ResponseField name="StartDate" type="string (DateTime)">
+      Timer start date and time
+    </ResponseField>
+    <ResponseField name="EndDate" type="string (DateTime)">
+      Timer end date and time
+    </ResponseField>
+    <ResponseField name="Status" type="string">
+      Timer status
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="TotalRecordCount" type="integer">
+  Total number of timers
+</ResponseField>
+
+### Status Codes
+
+- `200` - Timers returned successfully
+- `401` - Unauthorized
+- `403` - Forbidden
+
+---
+
+## Get Timer
+
+Retrieves a specific timer by ID.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://your-server/LiveTv/Timers/{timerId}" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  GET
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/Timers/{timerId}`
+</ParamField>
+
+### Authentication
+
+Requires `LiveTvAccess` policy authorization.
+
+### Path Parameters
+
+<ParamField path="timerId" type="string" required>
+  The timer ID
+</ParamField>
+
+### Response
+
+<ResponseField name="TimerInfoDto" type="object">
+  Detailed timer information
+</ResponseField>
+
+### Status Codes
+
+- `200` - Timer returned successfully
+- `401` - Unauthorized
+- `403` - Forbidden
+
+---
+
+## Get Default Timer
+
+Retrieves default values for a new timer, optionally based on a program.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://your-server/LiveTv/Timers/Defaults?programId=PROGRAM_ID" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  GET
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/Timers/Defaults`
+</ParamField>
+
+### Authentication
+
+Requires `LiveTvAccess` policy authorization.
+
+### Query Parameters
+
+<ParamField query="programId" type="string">
+  Attach default values based on a program
+</ParamField>
+
+### Response
+
+<ResponseField name="SeriesTimerInfoDto" type="object">
+  Default timer values
+</ResponseField>
+
+### Status Codes
+
+- `200` - Default values returned successfully
+- `401` - Unauthorized
+- `403` - Forbidden
+
+---
+
+## Create Timer
+
+Creates a new live TV timer (scheduled recording).
+
+<CodeGroup>
+```bash cURL
+curl -X POST "https://your-server/LiveTv/Timers" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ChannelId": "channel-id",
+    "ProgramId": "program-id",
+    "PrePaddingSeconds": 60,
+    "PostPaddingSeconds": 300
+  }'
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  POST
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/Timers`
+</ParamField>
+
+### Authentication
+
+Requires `LiveTvManagement` policy authorization.
+
+### Request Body
+
+<ParamField body="ChannelId" type="string" required>
+  Channel ID to record from
+</ParamField>
+
+<ParamField body="ProgramId" type="string" required>
+  Program ID to record
+</ParamField>
+
+<ParamField body="PrePaddingSeconds" type="integer">
+  Seconds to start recording before the program starts
+</ParamField>
+
+<ParamField body="PostPaddingSeconds" type="integer">
+  Seconds to continue recording after the program ends
+</ParamField>
+
+### Status Codes
+
+- `204` - Timer created successfully
+- `401` - Unauthorized
+- `403` - Forbidden (requires LiveTvManagement policy)
+- `400` - Bad request
+
+---
+
+## Update Timer
+
+Updates an existing live TV timer.
+
+<CodeGroup>
+```bash cURL
+curl -X POST "https://your-server/LiveTv/Timers/{timerId}" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "Id": "timer-id",
+    "PrePaddingSeconds": 120,
+    "PostPaddingSeconds": 600
+  }'
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  POST
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/Timers/{timerId}`
+</ParamField>
+
+### Authentication
+
+Requires `LiveTvManagement` policy authorization.
+
+### Path Parameters
+
+<ParamField path="timerId" type="string" required>
+  The timer ID to update
+</ParamField>
+
+### Request Body
+
+TimerInfoDto object with updated values.
+
+### Status Codes
+
+- `204` - Timer updated successfully
+- `401` - Unauthorized
+- `403` - Forbidden
+- `400` - Bad request
+
+---
+
+## Cancel Timer
+
+Cancels a live TV timer.
+
+<CodeGroup>
+```bash cURL
+curl -X DELETE "https://your-server/LiveTv/Timers/{timerId}" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  DELETE
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/Timers/{timerId}`
+</ParamField>
+
+### Authentication
+
+Requires `LiveTvManagement` policy authorization.
+
+### Path Parameters
+
+<ParamField path="timerId" type="string" required>
+  The timer ID to cancel
+</ParamField>
+
+### Status Codes
+
+- `204` - Timer cancelled successfully
+- `401` - Unauthorized
+- `403` - Forbidden
+
+---
+
+## Get Series Timers
+
+Retrieves a list of series timers (recurring recordings).
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://your-server/LiveTv/SeriesTimers" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  GET
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/SeriesTimers`
+</ParamField>
+
+### Authentication
+
+Requires `LiveTvAccess` policy authorization.
+
+### Query Parameters
+
+<ParamField query="sortBy" type="string">
+  Sort by SortName or Priority
+</ParamField>
+
+<ParamField query="sortOrder" type="string">
+  Sort order: `Ascending` or `Descending`
+</ParamField>
+
+### Response
+
+<ResponseField name="Items" type="array">
+  Array of series timer information
+</ResponseField>
+
+<ResponseField name="TotalRecordCount" type="integer">
+  Total number of series timers
+</ResponseField>
+
+### Status Codes
+
+- `200` - Series timers returned successfully
+- `401` - Unauthorized
+- `403` - Forbidden
+
+---
+
+## Get Series Timer
+
+Retrieves a specific series timer by ID.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://your-server/LiveTv/SeriesTimers/{timerId}" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  GET
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/SeriesTimers/{timerId}`
+</ParamField>
+
+### Authentication
+
+Requires `LiveTvAccess` policy authorization.
+
+### Path Parameters
+
+<ParamField path="timerId" type="string" required>
+  The series timer ID
+</ParamField>
+
+### Response
+
+<ResponseField name="SeriesTimerInfoDto" type="object">
+  Detailed series timer information
+</ResponseField>
+
+### Status Codes
+
+- `200` - Series timer returned successfully
+- `404` - Series timer not found
+- `401` - Unauthorized
+- `403` - Forbidden
+
+---
+
+## Create Series Timer
+
+Creates a new series timer (recurring recording).
+
+<CodeGroup>
+```bash cURL
+curl -X POST "https://your-server/LiveTv/SeriesTimers" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "ChannelId": "channel-id",
+    "ProgramId": "program-id",
+    "RecordAnyChannel": false,
+    "RecordAnyTime": false,
+    "RecordNewOnly": true
+  }'
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  POST
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/SeriesTimers`
+</ParamField>
+
+### Authentication
+
+Requires `LiveTvManagement` policy authorization.
+
+### Request Body
+
+SeriesTimerInfoDto object with series timer configuration.
+
+### Status Codes
+
+- `204` - Series timer created successfully
+- `401` - Unauthorized
+- `403` - Forbidden
+- `400` - Bad request
+
+---
+
+## Update Series Timer
+
+Updates an existing series timer.
+
+<CodeGroup>
+```bash cURL
+curl -X POST "https://your-server/LiveTv/SeriesTimers/{timerId}" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "Id": "timer-id",
+    "RecordNewOnly": true
+  }'
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  POST
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/SeriesTimers/{timerId}`
+</ParamField>
+
+### Authentication
+
+Requires `LiveTvManagement` policy authorization.
+
+### Path Parameters
+
+<ParamField path="timerId" type="string" required>
+  The series timer ID to update
+</ParamField>
+
+### Request Body
+
+SeriesTimerInfoDto object with updated values.
+
+### Status Codes
+
+- `204` - Series timer updated successfully
+- `401` - Unauthorized
+- `403` - Forbidden
+- `400` - Bad request
+
+---
+
+## Cancel Series Timer
+
+Cancels a series timer.
+
+<CodeGroup>
+```bash cURL
+curl -X DELETE "https://your-server/LiveTv/SeriesTimers/{timerId}" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  DELETE
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/LiveTv/SeriesTimers/{timerId}`
+</ParamField>
+
+### Authentication
+
+Requires `LiveTvManagement` policy authorization.
+
+### Path Parameters
+
+<ParamField path="timerId" type="string" required>
+  The series timer ID to cancel
+</ParamField>
+
+### Status Codes
+
+- `204` - Series timer cancelled successfully
+- `401` - Unauthorized
+- `403` - Forbidden

@@ -1,0 +1,694 @@
+---
+title: "User Management Endpoints"
+description: "API endpoints for managing Jellyfin users - creating, updating, deleting, and retrieving user information"
+---
+
+## Overview
+
+The User Management API provides comprehensive endpoints for user CRUD operations, authentication, password management, and user configuration in Jellyfin Server.
+
+## Get Users
+
+Retrieves a list of all users on the server.
+
+**Endpoint:** `GET /Users`
+
+**Authorization:** Required
+
+### Query Parameters
+
+<ParamField query="isHidden" type="boolean" optional>
+  Filter by hidden status. Set to `true` to show only hidden users, `false` for non-hidden users.
+</ParamField>
+
+<ParamField query="isDisabled" type="boolean" optional>
+  Filter by disabled status. Set to `true` to show only disabled users, `false` for enabled users.
+</ParamField>
+
+### Response
+
+<ResponseField name="users" type="array">
+  Array of user objects
+  
+  <Expandable title="UserDto properties">
+    <ResponseField name="Name" type="string">
+      The username
+    </ResponseField>
+    
+    <ResponseField name="Id" type="string (UUID)">
+      Unique user identifier
+    </ResponseField>
+    
+    <ResponseField name="ServerId" type="string">
+      Server identifier
+    </ResponseField>
+    
+    <ResponseField name="PrimaryImageTag" type="string">
+      Tag for the user's profile image
+    </ResponseField>
+    
+    <ResponseField name="LastLoginDate" type="string (datetime)">
+      Timestamp of last login
+    </ResponseField>
+    
+    <ResponseField name="LastActivityDate" type="string (datetime)">
+      Timestamp of last activity
+    </ResponseField>
+    
+    <ResponseField name="Configuration" type="object">
+      User configuration settings (see User Configuration section)
+    </ResponseField>
+    
+    <ResponseField name="Policy" type="object">
+      User policy and permissions (see User Policy section)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Example Request
+
+```bash
+curl -X GET "https://your-server.com/Users?isDisabled=false" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_TOKEN"
+```
+
+### Example Response
+
+```json
+[
+  {
+    "Name": "admin",
+    "ServerId": "a1b2c3d4e5f6",
+    "Id": "6eec632a-9b0c-4a63-8b8e-7b7f9c3c9e8f",
+    "PrimaryImageTag": "abc123",
+    "LastLoginDate": "2026-03-05T10:30:00.000Z",
+    "LastActivityDate": "2026-03-05T12:45:00.000Z",
+    "Configuration": {
+      "PlayDefaultAudioTrack": true,
+      "SubtitleMode": "Default",
+      "EnableNextEpisodeAutoPlay": true
+    },
+    "Policy": {
+      "IsAdministrator": true,
+      "IsHidden": false,
+      "IsDisabled": false,
+      "EnableAllFolders": true
+    }
+  }
+]
+```
+
+---
+
+## Get Public Users
+
+Retrieves a list of publicly visible users for display on a login screen.
+
+**Endpoint:** `GET /Users/Public`
+
+**Authorization:** Not required
+
+### Response
+
+Returns an array of UserDto objects for users that are not hidden and have remote access enabled.
+
+### Example Request
+
+```bash
+curl -X GET "https://your-server.com/Users/Public"
+```
+
+---
+
+## Get User by ID
+
+Retrieves a specific user by their unique identifier.
+
+**Endpoint:** `GET /Users/{userId}`
+
+**Authorization:** Required
+
+### Path Parameters
+
+<ParamField path="userId" type="string (UUID)" required>
+  The unique identifier of the user
+</ParamField>
+
+### Response
+
+Returns a UserDto object with complete user information.
+
+### Status Codes
+
+- `200` - User returned successfully
+- `404` - User not found
+
+### Example Request
+
+```bash
+curl -X GET "https://your-server.com/Users/6eec632a-9b0c-4a63-8b8e-7b7f9c3c9e8f" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_TOKEN"
+```
+
+---
+
+## Get Current User
+
+Retrieves the user associated with the current authentication token.
+
+**Endpoint:** `GET /Users/Me`
+
+**Authorization:** Required
+
+### Response
+
+Returns a UserDto object for the authenticated user.
+
+### Status Codes
+
+- `200` - User returned successfully
+- `400` - Token is not owned by a user
+
+### Example Request
+
+```bash
+curl -X GET "https://your-server.com/Users/Me" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_TOKEN"
+```
+
+---
+
+## Create User
+
+Creates a new user account on the server.
+
+**Endpoint:** `POST /Users/New`
+
+**Authorization:** Required (Administrator with elevated privileges)
+
+### Request Body
+
+<ParamField body="Name" type="string" required>
+  Username for the new user
+</ParamField>
+
+<ParamField body="Password" type="string" optional>
+  Initial password for the user (plain text)
+</ParamField>
+
+### Response
+
+Returns the newly created UserDto object.
+
+### Status Codes
+
+- `200` - User created successfully
+- `403` - Insufficient permissions
+
+### Example Request
+
+```bash
+curl -X POST "https://your-server.com/Users/New" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "Name": "newuser",
+    "Password": "securepassword123"
+  }'
+```
+
+### Example Response
+
+```json
+{
+  "Name": "newuser",
+  "ServerId": "a1b2c3d4e5f6",
+  "Id": "7ffd743b-0c1d-5b74-9c9f-8c8g0d4d0f9g",
+  "Configuration": {
+    "PlayDefaultAudioTrack": true,
+    "EnableNextEpisodeAutoPlay": true
+  },
+  "Policy": {
+    "IsAdministrator": false,
+    "IsHidden": true,
+    "IsDisabled": false
+  }
+}
+```
+
+---
+
+## Update User
+
+Updates a user's information including username and configuration.
+
+**Endpoint:** `POST /Users` (with query parameter) or `POST /Users/{userId}` (legacy)
+
+**Authorization:** Required
+
+### Query Parameters
+
+<ParamField query="userId" type="string (UUID)" optional>
+  The user ID to update. If not provided, updates the authenticated user.
+</ParamField>
+
+### Request Body
+
+<ParamField body="Name" type="string" required>
+  Updated username
+</ParamField>
+
+<ParamField body="Configuration" type="object" required>
+  Updated user configuration object
+</ParamField>
+
+### Response
+
+Returns `204 No Content` on success.
+
+### Status Codes
+
+- `204` - User updated successfully
+- `400` - Invalid user information
+- `403` - User update forbidden
+- `404` - User not found
+
+### Example Request
+
+```bash
+curl -X POST "https://your-server.com/Users?userId=6eec632a-9b0c-4a63-8b8e-7b7f9c3c9e8f" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "Name": "updatedusername",
+    "Configuration": {
+      "AudioLanguagePreference": "eng",
+      "SubtitleLanguagePreference": "eng",
+      "PlayDefaultAudioTrack": true,
+      "EnableNextEpisodeAutoPlay": false
+    }
+  }'
+```
+
+---
+
+## Delete User
+
+Deletes a user account from the server.
+
+**Endpoint:** `DELETE /Users/{userId}`
+
+**Authorization:** Required (Administrator with elevated privileges)
+
+### Path Parameters
+
+<ParamField path="userId" type="string (UUID)" required>
+  The unique identifier of the user to delete
+</ParamField>
+
+### Response
+
+Returns `204 No Content` on success. This operation also:
+- Revokes all user tokens
+- Removes all user playlists
+- Permanently deletes the user account
+
+### Status Codes
+
+- `204` - User deleted successfully
+- `404` - User not found
+
+### Example Request
+
+```bash
+curl -X DELETE "https://your-server.com/Users/6eec632a-9b0c-4a63-8b8e-7b7f9c3c9e8f" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_TOKEN"
+```
+
+---
+
+## Update User Password
+
+Updates a user's password or resets it.
+
+**Endpoint:** `POST /Users/Password` (with query parameter) or `POST /Users/{userId}/Password` (legacy)
+
+**Authorization:** Required
+
+### Query Parameters
+
+<ParamField query="userId" type="string (UUID)" optional>
+  The user ID to update password for. If not provided, updates the authenticated user's password.
+</ParamField>
+
+### Request Body
+
+<ParamField body="CurrentPw" type="string" optional>
+  Current password in plain text (required for non-admin users)
+</ParamField>
+
+<ParamField body="NewPw" type="string" optional>
+  New password in plain text
+</ParamField>
+
+<ParamField body="ResetPassword" type="boolean">
+  If true, resets the password to empty (admin only)
+</ParamField>
+
+### Response
+
+Returns `204 No Content` on success. All existing user tokens (except the current one) are revoked.
+
+### Status Codes
+
+- `204` - Password successfully updated
+- `403` - Insufficient permissions or invalid current password
+- `404` - User not found
+
+### Example Request
+
+```bash
+curl -X POST "https://your-server.com/Users/Password" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "CurrentPw": "oldpassword",
+    "NewPw": "newsecurepassword",
+    "ResetPassword": false
+  }'
+```
+
+---
+
+## Update User Policy
+
+Updates a user's policy settings, including permissions and restrictions.
+
+**Endpoint:** `POST /Users/{userId}/Policy`
+
+**Authorization:** Required (Administrator with elevated privileges)
+
+### Path Parameters
+
+<ParamField path="userId" type="string (UUID)" required>
+  The unique identifier of the user
+</ParamField>
+
+### Request Body
+
+<ParamField body="IsAdministrator" type="boolean">
+  Whether the user has administrator privileges
+</ParamField>
+
+<ParamField body="IsHidden" type="boolean">
+  Whether the user is hidden from login screens
+</ParamField>
+
+<ParamField body="IsDisabled" type="boolean">
+  Whether the user account is disabled
+</ParamField>
+
+<ParamField body="EnableAllFolders" type="boolean">
+  Whether the user can access all media folders
+</ParamField>
+
+<ParamField body="EnabledFolders" type="array">
+  Array of folder IDs the user can access (if EnableAllFolders is false)
+</ParamField>
+
+<ParamField body="EnableMediaPlayback" type="boolean">
+  Whether the user can play media
+</ParamField>
+
+<ParamField body="EnableLiveTvAccess" type="boolean">
+  Whether the user can access Live TV
+</ParamField>
+
+<ParamField body="MaxActiveSessions" type="integer">
+  Maximum number of concurrent sessions (0 for unlimited)
+</ParamField>
+
+### Response
+
+Returns `204 No Content` on success.
+
+### Status Codes
+
+- `204` - Policy updated successfully
+- `400` - Invalid policy data
+- `403` - Operation forbidden (e.g., removing last admin)
+- `404` - User not found
+
+### Validation Rules
+
+- At least one administrator must remain in the system
+- At least one enabled user must remain in the system
+- Administrators cannot be disabled
+
+### Example Request
+
+```bash
+curl -X POST "https://your-server.com/Users/6eec632a-9b0c-4a63-8b8e-7b7f9c3c9e8f/Policy" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "IsAdministrator": false,
+    "IsHidden": false,
+    "IsDisabled": false,
+    "EnableAllFolders": true,
+    "EnableMediaPlayback": true,
+    "EnableLiveTvAccess": true,
+    "MaxActiveSessions": 2
+  }'
+```
+
+---
+
+## Update User Configuration
+
+Updates a user's configuration settings such as language preferences and playback options.
+
+**Endpoint:** `POST /Users/Configuration` (with query parameter) or `POST /Users/{userId}/Configuration` (legacy)
+
+**Authorization:** Required
+
+### Query Parameters
+
+<ParamField query="userId" type="string (UUID)" optional>
+  The user ID to update configuration for. If not provided, updates the authenticated user.
+</ParamField>
+
+### Request Body
+
+<ParamField body="AudioLanguagePreference" type="string" optional>
+  Preferred audio language code (e.g., "eng", "spa")
+</ParamField>
+
+<ParamField body="SubtitleLanguagePreference" type="string" optional>
+  Preferred subtitle language code
+</ParamField>
+
+<ParamField body="PlayDefaultAudioTrack" type="boolean">
+  Whether to play the default audio track
+</ParamField>
+
+<ParamField body="SubtitleMode" type="string">
+  Subtitle mode: "Default", "Smart", "OnlyForced", "Always", "None"
+</ParamField>
+
+<ParamField body="EnableNextEpisodeAutoPlay" type="boolean">
+  Whether to automatically play the next episode
+</ParamField>
+
+<ParamField body="RememberAudioSelections" type="boolean">
+  Whether to remember audio track selections
+</ParamField>
+
+<ParamField body="RememberSubtitleSelections" type="boolean">
+  Whether to remember subtitle selections
+</ParamField>
+
+### Response
+
+Returns `204 No Content` on success.
+
+### Status Codes
+
+- `204` - Configuration updated successfully
+- `403` - User configuration update not allowed
+- `404` - User not found
+
+### Example Request
+
+```bash
+curl -X POST "https://your-server.com/Users/Configuration" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "AudioLanguagePreference": "eng",
+    "SubtitleLanguagePreference": "eng",
+    "PlayDefaultAudioTrack": true,
+    "SubtitleMode": "Default",
+    "EnableNextEpisodeAutoPlay": true,
+    "RememberAudioSelections": true,
+    "RememberSubtitleSelections": true
+  }'
+```
+
+---
+
+## Authenticate User by Name
+
+Authenticates a user with username and password, creating a new session.
+
+**Endpoint:** `POST /Users/AuthenticateByName`
+
+**Authorization:** Not required (but device headers are recommended)
+
+### Request Body
+
+<ParamField body="Username" type="string" required>
+  The username
+</ParamField>
+
+<ParamField body="Pw" type="string" required>
+  The password in plain text
+</ParamField>
+
+### Response
+
+<ResponseField name="User" type="object">
+  The authenticated user information (UserDto)
+</ResponseField>
+
+<ResponseField name="SessionInfo" type="object">
+  Information about the created session
+</ResponseField>
+
+<ResponseField name="AccessToken" type="string">
+  The authentication token to use for subsequent requests
+</ResponseField>
+
+<ResponseField name="ServerId" type="string">
+  The server identifier
+</ResponseField>
+
+### Status Codes
+
+- `200` - User authenticated successfully
+- `401` - Invalid username or password
+
+### Example Request
+
+```bash
+curl -X POST "https://your-server.com/Users/AuthenticateByName" \
+  -H "Content-Type: application/json" \
+  -H "X-Emby-Authorization: MediaBrowser Client=\"MyApp\", Device=\"MyDevice\", DeviceId=\"device123\", Version=\"1.0.0\"" \
+  -d '{
+    "Username": "admin",
+    "Pw": "password123"
+  }'
+```
+
+### Example Response
+
+```json
+{
+  "User": {
+    "Name": "admin",
+    "ServerId": "a1b2c3d4e5f6",
+    "Id": "6eec632a-9b0c-4a63-8b8e-7b7f9c3c9e8f",
+    "Policy": {
+      "IsAdministrator": true
+    }
+  },
+  "SessionInfo": {
+    "Id": "session123",
+    "UserId": "6eec632a-9b0c-4a63-8b8e-7b7f9c3c9e8f",
+    "Client": "MyApp",
+    "DeviceId": "device123"
+  },
+  "AccessToken": "a1b2c3d4e5f6g7h8i9j0",
+  "ServerId": "a1b2c3d4e5f6"
+}
+```
+
+---
+
+## Forgot Password
+
+Initiates the forgot password process for a local user.
+
+**Endpoint:** `POST /Users/ForgotPassword`
+
+**Authorization:** Not required
+
+### Request Body
+
+<ParamField body="EnteredUsername" type="string" required>
+  The username to reset password for
+</ParamField>
+
+### Response
+
+<ResponseField name="Action" type="string">
+  The action to take: "ContactAdmin", "PinCode", or "InNetworkRequired"
+</ResponseField>
+
+<ResponseField name="PinFile" type="string" optional>
+  Path to the PIN file (if Action is "PinCode")
+</ResponseField>
+
+### Status Codes
+
+- `200` - Password reset process started
+
+### Example Request
+
+```bash
+curl -X POST "https://your-server.com/Users/ForgotPassword" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "EnteredUsername": "admin"
+  }'
+```
+
+---
+
+## Redeem Forgot Password Pin
+
+Redeems a forgot password PIN to complete the password reset.
+
+**Endpoint:** `POST /Users/ForgotPassword/Pin`
+
+**Authorization:** Not required
+
+### Request Body
+
+<ParamField body="Pin" type="string" required>
+  The PIN from the forgot password process
+</ParamField>
+
+### Response
+
+<ResponseField name="Success" type="boolean">
+  Whether the PIN was valid
+</ResponseField>
+
+<ResponseField name="UsersReset" type="array">
+  Array of usernames that were reset
+</ResponseField>
+
+### Status Codes
+
+- `200` - PIN processed
+
+### Example Request
+
+```bash
+curl -X POST "https://your-server.com/Users/ForgotPassword/Pin" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "Pin": "12345678"
+  }'
+```

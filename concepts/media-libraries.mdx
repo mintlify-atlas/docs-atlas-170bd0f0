@@ -1,0 +1,408 @@
+---
+title: Media Libraries
+description: How Jellyfin organizes, scans, and manages media content
+---
+
+Media libraries are the foundation of Jellyfin's content organization system. Each library represents a collection of media files of a specific type (movies, TV shows, music, etc.) that Jellyfin scans, indexes, and makes available for streaming.
+
+## Library Structure
+
+Jellyfin organizes media into a hierarchical structure:
+
+<Steps>
+  <Step title="Root Folder">
+    The `AggregateFolder` serves as the root container for all libraries. It aggregates all virtual folders configured by the administrator.
+  </Step>
+  
+  <Step title="Virtual Folders">
+    Each library is represented as a virtual folder with a specific collection type (Movies, TV Shows, Music, Books, etc.).
+  </Step>
+  
+  <Step title="Physical Paths">
+    Virtual folders map to one or more physical paths on disk where media files are stored.
+  </Step>
+  
+  <Step title="Media Items">
+    Individual files are resolved into typed items (Movie, Episode, Audio, etc.) with associated metadata.
+  </Step>
+</Steps>
+
+## Collection Types
+
+Jellyfin supports several collection types, each with specialized handling:
+
+<Tabs>
+  <Tab title="Movies">
+    - Individual movie files
+    - Movie folders with multiple versions/editions
+    - Extras (trailers, behind-the-scenes, deleted scenes)
+    - Multiple video formats
+  </Tab>
+  
+  <Tab title="TV Shows">
+    - Series → Season → Episode hierarchy
+    - Multi-episode files
+    - Special episodes and season 0
+    - Episode ordering options (aired, DVD, absolute)
+  </Tab>
+  
+  <Tab title="Music">
+    - Artist → Album → Track structure
+    - Album artists and contributing artists
+    - Disc numbers and multi-disc albums
+    - Embedded and external lyrics
+  </Tab>
+  
+  <Tab title="Books">
+    - E-books (EPUB, PDF, MOBI, etc.)
+    - Audiobooks with chapters
+    - Comic books and manga
+    - Book series support
+  </Tab>
+</Tabs>
+
+## Library Manager
+
+The `LibraryManager` is the central service for managing media libraries:
+
+```csharp Emby.Server.Implementations/Library/LibraryManager.cs
+public class LibraryManager : ILibraryManager
+{
+    private readonly ILogger<LibraryManager> _logger;
+    private readonly IItemRepository _itemRepository;
+    private readonly IUserManager _userManager;
+    private readonly IFileSystem _fileSystem;
+    private readonly NamingOptions _namingOptions;
+    
+    private readonly FastConcurrentLru<Guid, BaseItem> _cache;
+    
+    public AggregateFolder RootFolder
+    {
+        get
+        {
+            if (_rootFolder is null)
+            {
+                lock (_rootFolderSyncLock)
+                {
+                    _rootFolder ??= CreateRootFolder();
+                }
+            }
+            return _rootFolder;
+        }
+    }
+    
+    public event EventHandler<ItemChangeEventArgs>? ItemAdded;
+    public event EventHandler<ItemChangeEventArgs>? ItemUpdated;
+    public event EventHandler<ItemChangeEventArgs>? ItemRemoved;
+}
+```
+
+<Info>
+  The LibraryManager uses an LRU cache to improve performance when accessing frequently requested items, reducing database queries.
+</Info>
+
+## Media Scanning Process
+
+When Jellyfin scans a library, it follows a multi-stage process:
+
+<Steps>
+  <Step title="File Discovery">
+    The file system is traversed to discover media files based on naming conventions and file extensions.
+    
+    ```csharp
+    public BaseItem? ResolvePath(
+        FileSystemMetadata fileInfo,
+        Folder? parent = null,
+        IDirectoryService? directoryService = null)
+    {
+        // Resolve files into BaseItem objects
+    }
+    ```
+  </Step>
+  
+  <Step title="Item Resolution">
+    Resolvers determine the type of each media item (Movie, Episode, Audio, etc.).
+    
+    Jellyfin includes specialized resolvers:
+    - `MovieResolver` - Identifies movie files
+    - `SeriesResolver` - Identifies TV series folders
+    - `EpisodeResolver` - Parses episode information from filenames
+    - `AudioResolver` - Identifies audio tracks
+  </Step>
+  
+  <Step title="Metadata Extraction">
+    Metadata is extracted from:
+    - Embedded tags (ID3, MP4, MKV metadata)
+    - File naming patterns (episode numbers, years, etc.)
+    - NFO files (Kodi-compatible XML metadata)
+  </Step>
+  
+  <Step title="Provider Fetching">
+    External metadata providers are queried:
+    - TMDb (movies and TV shows)
+    - MusicBrainz (music)
+    - Open Subtitles (subtitles)
+    - Local metadata providers
+  </Step>
+  
+  <Step title="Database Persistence">
+    Items and their metadata are saved to the database.
+    
+    ```csharp
+    await _itemRepository.SaveItems(items, cancellationToken)
+        .ConfigureAwait(false);
+    ```
+  </Step>
+  
+  <Step title="Post-Scan Tasks">
+    Additional processing tasks run after the scan:
+    - Image extraction and processing
+    - Chapter image generation
+    - People/actor validation
+  </Step>
+</Steps>
+
+## Naming Conventions
+
+Jellyfin uses the `Emby.Naming` library to parse media files:
+
+### TV Show Naming
+
+```
+TV Shows/
+  ├── Show Name (2020)/
+  │   ├── Season 01/
+  │   │   ├── Show Name - S01E01 - Episode Title.mkv
+  │   │   ├── Show Name - S01E02 - Episode Title.mkv
+  │   │   └── Show Name - S01E03-E04 - Multi-Episode.mkv
+  │   ├── Season 02/
+  │   │   └── ...
+  │   └── tvshow.nfo
+```
+
+### Movie Naming
+
+```
+Movies/
+  ├── Movie Name (2021)/
+  │   ├── Movie Name (2021).mkv
+  │   ├── Movie Name (2021)-trailer.mp4
+  │   ├── movie.nfo
+  │   └── poster.jpg
+  ├── Another Movie (2022).mp4
+```
+
+### Music Naming
+
+```
+Music/
+  ├── Artist Name/
+  │   ├── Album Name (2020)/
+  │   │   ├── 01 - Track Name.flac
+  │   │   ├── 02 - Track Name.flac
+  │   │   ├── cover.jpg
+  │   │   └── album.nfo
+```
+
+<Tip>
+  Jellyfin supports multiple naming patterns. See the `NamingOptions` class for the full list of supported formats.
+</Tip>
+
+## Library Options
+
+Each library can be configured with specific options:
+
+```csharp MediaBrowser.Model/Configuration/LibraryOptions.cs
+public class LibraryOptions
+{
+    // Enable/disable metadata providers
+    public bool EnablePhotos { get; set; }
+    public bool EnableRealtimeMonitor { get; set; }
+    public bool EnableChapterImageExtraction { get; set; }
+    public bool ExtractChapterImagesDuringLibraryScan { get; set; }
+    
+    // Metadata downloaders
+    public string[] MetadataSavers { get; set; }
+    public string[] DisabledLocalMetadataReaders { get; set; }
+    public string[] LocalMetadataReaderOrder { get; set; }
+    
+    // Content preferences
+    public string[] PreferredMetadataLanguage { get; set; }
+    public string PreferredImageLanguage { get; set; }
+    
+    // Path settings
+    public string[] PathInfos { get; set; }
+}
+```
+
+## Real-Time Monitoring
+
+Jellyfin can monitor libraries for changes in real-time:
+
+```csharp MediaBrowser.Controller/Library/ILibraryMonitor.cs
+public interface ILibraryMonitor
+{
+    void Start();
+    void Stop();
+    
+    void ReportFileSystemChangeBeginning(string path);
+    void ReportFileSystemChangeComplete(string path, bool refreshPath);
+}
+```
+
+When real-time monitoring is enabled:
+- File system watchers detect new, modified, or deleted files
+- Changes are debounced to avoid excessive scanning
+- Only affected items are refreshed
+
+<Warning>
+  Real-time monitoring can be resource-intensive on large libraries or network shares. Consider using scheduled scans for network-mounted storage.
+</Warning>
+
+## Item Resolution
+
+The resolution process uses a priority-based system of resolvers:
+
+```csharp MediaBrowser.Controller/Library/ItemResolveArgs.cs
+public class ItemResolveArgs
+{
+    public Folder? Parent { get; set; }
+    public FileSystemMetadata FileInfo { get; set; }
+    public string Path { get; set; }
+    public LibraryOptions LibraryOptions { get; set; }
+    public CollectionType? CollectionType { get; set; }
+    
+    public bool IsDirectory => FileInfo?.IsDirectory ?? false;
+    public bool IsVf => Parent is AggregateFolder;
+}
+```
+
+Resolvers are executed in priority order:
+
+<CodeGroup>
+```csharp Priority Example
+public void AddParts(
+    IEnumerable<IResolverIgnoreRule> rules,
+    IEnumerable<IItemResolver> resolvers,
+    IEnumerable<IIntroProvider> introProviders,
+    IEnumerable<IBaseItemComparer> itemComparers,
+    IEnumerable<ILibraryPostScanTask> postScanTasks)
+{
+    EntityResolutionIgnoreRules = rules.ToArray();
+    EntityResolvers = resolvers.OrderBy(i => i.Priority).ToArray();
+    MultiItemResolvers = EntityResolvers.OfType<IMultiItemResolver>().ToArray();
+}
+```
+
+```csharp Example Resolver
+public class MovieResolver : IItemResolver
+{
+    public BaseItem? ResolvePath(ItemResolveArgs args)
+    {
+        if (args.IsDirectory)
+        {
+            // Check if directory represents a movie
+            if (IsMovieDirectory(args))
+            {
+                return new Movie
+                {
+                    Path = args.Path,
+                    Name = Path.GetFileName(args.Path)
+                };
+            }
+        }
+        return null;
+    }
+}
+```
+</CodeGroup>
+
+## Metadata Providers
+
+Metadata is fetched from multiple sources:
+
+<Tabs>
+  <Tab title="Local Providers">
+    - **NFO files**: Kodi-compatible XML metadata
+    - **Embedded metadata**: Tags in media files
+    - **Image files**: poster.jpg, fanart.jpg, etc.
+  </Tab>
+  
+  <Tab title="Remote Providers">
+    - **TMDb**: Movies and TV shows
+    - **TVDB**: TV series information
+    - **MusicBrainz**: Music metadata
+    - **AudioDB**: Album artwork and artist info
+    - **OMDB**: Alternative movie database
+  </Tab>
+  
+  <Tab title="Plugin Providers">
+    Additional providers can be installed via plugins:
+    - AniDB for anime
+    - Trakt for watch history sync
+    - Bookshelf for book metadata
+  </Tab>
+</Tabs>
+
+## Image Processing
+
+Jellyfin processes and caches images for optimal delivery:
+
+- **Primary images**: Posters, covers
+- **Backdrops**: Background artwork
+- **Logos**: Transparent overlays
+- **Thumbnails**: Chapter images, episode stills
+
+```csharp
+public interface IImageProcessor
+{
+    Task<string> ProcessImage(ImageProcessingOptions options);
+    string GetImageCacheTag(BaseItem item, ItemImageInfo image);
+    ImageDimensions GetImageDimensions(BaseItem item, ItemImageInfo image);
+}
+```
+
+<Info>
+  Images are automatically resized and cached based on client requirements to optimize bandwidth and loading times.
+</Info>
+
+## Library Events
+
+The LibraryManager emits events for library changes:
+
+```csharp
+// Subscribe to library events
+library.ItemAdded += (sender, args) => 
+{
+    _logger.LogInformation("Item added: {Name}", args.Item.Name);
+};
+
+library.ItemUpdated += (sender, args) =>
+{
+    _logger.LogInformation("Item updated: {Name}", args.Item.Name);
+};
+
+library.ItemRemoved += (sender, args) =>
+{
+    _logger.LogInformation("Item removed: {Name}", args.Item.Name);
+};
+```
+
+These events are propagated to connected clients via WebSocket.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture" icon="sitemap" href="/concepts/architecture">
+    Understand Jellyfin's overall architecture
+  </Card>
+  <Card title="Users & Authentication" icon="users" href="/concepts/users-authentication">
+    Learn about user management
+  </Card>
+  <Card title="Plugins" icon="puzzle-piece" href="/concepts/plugins">
+    Extend library functionality with plugins
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/authentication/overview">
+    Access library data via the API
+  </Card>
+</CardGroup>

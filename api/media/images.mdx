@@ -1,0 +1,605 @@
+---
+title: "Images API"
+description: "Retrieve, upload, and manage images for media items and users"
+---
+
+The Images API provides comprehensive image management for Jellyfin, including retrieving images, uploading new images, deleting images, and accessing remote image providers.
+
+## Get Item Image
+
+Retrieve an image for a specific item with optional transformations.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://your-server/Items/{itemId}/Images/Primary?maxWidth=500&quality=90" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -o "image.jpg"
+```
+
+```javascript JavaScript
+const response = await fetch(
+  'https://your-server/Items/{itemId}/Images/Primary?maxWidth=500&quality=90',
+  {
+    headers: {
+      'Authorization': 'MediaBrowser Token=YOUR_API_KEY'
+    }
+  }
+);
+const blob = await response.blob();
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    f'https://your-server/Items/{item_id}/Images/Primary',
+    params={'maxWidth': 500, 'quality': 90},
+    headers={'Authorization': 'MediaBrowser Token=YOUR_API_KEY'}
+)
+with open('image.jpg', 'wb') as f:
+    f.write(response.content)
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  GET
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/Items/{itemId}/Images/{imageType}`
+</ParamField>
+
+### Path Parameters
+
+<ParamField path="itemId" type="string (GUID)" required>
+  The item ID.
+</ParamField>
+
+<ParamField path="imageType" type="string" required>
+  Type of image: Primary, Art, Backdrop, Banner, Logo, Thumb, Disc, Box, Screenshot, Menu, Chapter, BoxRear, Profile
+</ParamField>
+
+<ParamField path="imageIndex" type="integer">
+  Image index for types that support multiple images (e.g., Backdrop).
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="maxWidth" type="integer">
+  Maximum image width to return.
+</ParamField>
+
+<ParamField query="maxHeight" type="integer">
+  Maximum image height to return.
+</ParamField>
+
+<ParamField query="width" type="integer">
+  Fixed image width to return.
+</ParamField>
+
+<ParamField query="height" type="integer">
+  Fixed image height to return.
+</ParamField>
+
+<ParamField query="quality" type="integer" default="90">
+  Image quality setting, from 0-100. Defaults to 90.
+</ParamField>
+
+<ParamField query="fillWidth" type="integer">
+  Width of box to fill.
+</ParamField>
+
+<ParamField query="fillHeight" type="integer">
+  Height of box to fill.
+</ParamField>
+
+<ParamField query="tag" type="string">
+  Supply the cache tag from the item object to receive strong caching headers.
+</ParamField>
+
+<ParamField query="format" type="string">
+  Image format: Original, Gif, Jpg, Png, Webp.
+</ParamField>
+
+<ParamField query="percentPlayed" type="number">
+  Percent to render for the percent played overlay.
+</ParamField>
+
+<ParamField query="unplayedCount" type="integer">
+  Unplayed count overlay to render.
+</ParamField>
+
+<ParamField query="blur" type="integer">
+  Blur amount to apply to the image.
+</ParamField>
+
+<ParamField query="backgroundColor" type="string">
+  Apply a background color for transparent images (hex color).
+</ParamField>
+
+<ParamField query="foregroundLayer" type="string">
+  Apply a foreground layer on top of the image.
+</ParamField>
+
+### Response
+
+Image file stream with appropriate content type.
+
+### Response Codes
+
+- `200` - Success: Image stream returned
+- `404` - Not Found: Item or image not found
+
+---
+
+## Get Item Image Info
+
+Retrieve information about all images for an item.
+
+```bash cURL
+curl -X GET "https://your-server/Items/{itemId}/Images" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+### Endpoint
+
+`GET /Items/{itemId}/Images`
+
+### Path Parameters
+
+<ParamField path="itemId" type="string (GUID)" required>
+  The item ID.
+</ParamField>
+
+### Response
+
+<ResponseField name="ImageInfos" type="array">
+  Array of image information objects.
+  
+  <Expandable title="ImageInfo properties">
+    <ResponseField name="ImageType" type="string">
+      Type of image (Primary, Backdrop, etc).
+    </ResponseField>
+    
+    <ResponseField name="ImageIndex" type="integer">
+      Index for images that support multiples.
+    </ResponseField>
+    
+    <ResponseField name="Path" type="string">
+      File system path to the image.
+    </ResponseField>
+    
+    <ResponseField name="Height" type="integer">
+      Image height in pixels.
+    </ResponseField>
+    
+    <ResponseField name="Width" type="integer">
+      Image width in pixels.
+    </ResponseField>
+    
+    <ResponseField name="Size" type="integer">
+      File size in bytes.
+    </ResponseField>
+    
+    <ResponseField name="BlurHash" type="string">
+      BlurHash string for progressive image loading.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Response Codes
+
+- `200` - Success: Image infos returned
+- `404` - Not Found: Item not found
+
+---
+
+## Upload Item Image
+
+Upload or update an image for an item.
+
+```bash cURL
+curl -X POST "https://your-server/Items/{itemId}/Images/Primary" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -H "Content-Type: image/jpeg" \
+  --data-binary @image.jpg
+```
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  POST
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/Items/{itemId}/Images/{imageType}`
+</ParamField>
+
+### Path Parameters
+
+<ParamField path="itemId" type="string (GUID)" required>
+  The item ID.
+</ParamField>
+
+<ParamField path="imageType" type="string" required>
+  Type of image to upload.
+</ParamField>
+
+<ParamField path="imageIndex" type="integer">
+  Image index for types that support multiple images.
+</ParamField>
+
+### Request Body
+
+Binary image data. Supported formats: JPEG, PNG, GIF, WEBP.
+
+Content-Type should be set appropriately (image/jpeg, image/png, etc).
+
+### Authorization
+
+Requires elevation policy (administrator access).
+
+### Response Codes
+
+- `204` - No Content: Image uploaded successfully
+- `400` - Bad Request: Incorrect content type
+- `404` - Not Found: Item not found
+
+---
+
+## Delete Item Image
+
+Delete an image from an item.
+
+```bash cURL
+curl -X DELETE "https://your-server/Items/{itemId}/Images/Primary" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+### Endpoint
+
+`DELETE /Items/{itemId}/Images/{imageType}`
+
+### Path Parameters
+
+<ParamField path="itemId" type="string (GUID)" required>
+  The item ID.
+</ParamField>
+
+<ParamField path="imageType" type="string" required>
+  Type of image to delete.
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="imageIndex" type="integer">
+  Image index for types that support multiple images.
+</ParamField>
+
+### Authorization
+
+Requires elevation policy (administrator access).
+
+### Response Codes
+
+- `204` - No Content: Image deleted successfully
+- `404` - Not Found: Item not found
+
+---
+
+## Update Image Index
+
+Update the index order of an image.
+
+```bash cURL
+curl -X POST "https://your-server/Items/{itemId}/Images/Backdrop/0/Index?newIndex=2" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+### Endpoint
+
+`POST /Items/{itemId}/Images/{imageType}/{imageIndex}/Index`
+
+### Path Parameters
+
+<ParamField path="itemId" type="string (GUID)" required>
+  The item ID.
+</ParamField>
+
+<ParamField path="imageType" type="string" required>
+  Type of image.
+</ParamField>
+
+<ParamField path="imageIndex" type="integer" required>
+  Current image index.
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="newIndex" type="integer" required>
+  New image index.
+</ParamField>
+
+### Authorization
+
+Requires elevation policy (administrator access).
+
+### Response Codes
+
+- `204` - No Content: Image index updated
+- `404` - Not Found: Item not found
+
+---
+
+## User Images
+
+Manage user profile images.
+
+### Get User Image
+
+```bash Get
+curl -X GET "https://your-server/Users/{userId}/Images/Primary" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -o "profile.jpg"
+```
+
+`GET /Users/{userId}/Images/Primary`
+
+### Upload User Image
+
+```bash Upload
+curl -X POST "https://your-server/UserImage?userId={userId}" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -H "Content-Type: image/jpeg" \
+  --data-binary @profile.jpg
+```
+
+`POST /UserImage`
+
+### Delete User Image
+
+```bash Delete
+curl -X DELETE "https://your-server/UserImage?userId={userId}" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+`DELETE /UserImage`
+
+### Query Parameters
+
+<ParamField query="userId" type="string (GUID)">
+  User ID. If not provided, uses the authenticated user.
+</ParamField>
+
+### Response Codes
+
+- `200` - Success: Image returned (GET)
+- `204` - No Content: Operation completed (POST/DELETE)
+- `403` - Forbidden: User does not have permission
+- `404` - Not Found: User not found
+
+---
+
+## Remote Images
+
+Access remote image providers for metadata.
+
+### Get Available Remote Images
+
+```bash cURL
+curl -X GET "https://your-server/Items/{itemId}/RemoteImages?type=Primary&limit=20" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+### Endpoint
+
+`GET /Items/{itemId}/RemoteImages`
+
+### Path Parameters
+
+<ParamField path="itemId" type="string (GUID)" required>
+  The item ID.
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="type" type="string">
+  Filter by image type (Primary, Backdrop, etc).
+</ParamField>
+
+<ParamField query="startIndex" type="integer">
+  Record index to start at.
+</ParamField>
+
+<ParamField query="limit" type="integer">
+  Maximum number of images to return.
+</ParamField>
+
+<ParamField query="providerName" type="string">
+  Filter by specific image provider.
+</ParamField>
+
+<ParamField query="includeAllLanguages" type="boolean" default="false">
+  Include images in all languages.
+</ParamField>
+
+### Response
+
+<ResponseField name="Images" type="array">
+  Array of remote image objects.
+  
+  <Expandable title="RemoteImageInfo properties">
+    <ResponseField name="Url" type="string">
+      URL to the remote image.
+    </ResponseField>
+    
+    <ResponseField name="ThumbnailUrl" type="string">
+      URL to a thumbnail version.
+    </ResponseField>
+    
+    <ResponseField name="ProviderName" type="string">
+      Name of the image provider.
+    </ResponseField>
+    
+    <ResponseField name="Type" type="string">
+      Image type.
+    </ResponseField>
+    
+    <ResponseField name="Width" type="integer">
+      Image width.
+    </ResponseField>
+    
+    <ResponseField name="Height" type="integer">
+      Image height.
+    </ResponseField>
+    
+    <ResponseField name="Language" type="string">
+      Image language.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="TotalRecordCount" type="integer">
+  Total number of available images.
+</ResponseField>
+
+<ResponseField name="Providers" type="string[]">
+  List of available provider names.
+</ResponseField>
+
+### Response Codes
+
+- `200` - Success: Remote images returned
+- `404` - Not Found: Item not found
+
+---
+
+## Get Remote Image Providers
+
+Get a list of available remote image providers for an item.
+
+```bash cURL
+curl -X GET "https://your-server/Items/{itemId}/RemoteImages/Providers" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+### Endpoint
+
+`GET /Items/{itemId}/RemoteImages/Providers`
+
+### Response
+
+<ResponseField name="Providers" type="array">
+  Array of image provider information.
+  
+  <Expandable title="ImageProviderInfo properties">
+    <ResponseField name="Name" type="string">
+      Provider name.
+    </ResponseField>
+    
+    <ResponseField name="SupportedImages" type="string[]">
+      Array of supported image types.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Response Codes
+
+- `200` - Success: Providers returned
+- `404` - Not Found: Item not found
+
+---
+
+## Download Remote Image
+
+Download a remote image and apply it to an item.
+
+```bash cURL
+curl -X POST "https://your-server/Items/{itemId}/RemoteImages/Download?type=Primary&imageUrl=https://..." \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+### Endpoint
+
+`POST /Items/{itemId}/RemoteImages/Download`
+
+### Path Parameters
+
+<ParamField path="itemId" type="string (GUID)" required>
+  The item ID.
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="type" type="string" required>
+  Image type to download.
+</ParamField>
+
+<ParamField query="imageUrl" type="string">
+  URL of the remote image to download.
+</ParamField>
+
+### Authorization
+
+Requires elevation policy (administrator access).
+
+### Response Codes
+
+- `204` - No Content: Remote image downloaded successfully
+- `404` - Not Found: Item or remote image not found
+
+---
+
+## Named Item Images
+
+Retrieve images for named items (artists, genres, persons, etc).
+
+### Get Artist Image
+
+```bash Artist
+curl -X GET "https://your-server/Artists/{name}/Images/Primary/0" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+`GET /Artists/{name}/Images/{imageType}/{imageIndex}`
+
+### Get Genre Image
+
+```bash Genre
+curl -X GET "https://your-server/Genres/{name}/Images/Primary" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+`GET /Genres/{name}/Images/{imageType}`
+
+### Get Person Image
+
+```bash Person
+curl -X GET "https://your-server/Persons/{name}/Images/Primary" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+`GET /Persons/{name}/Images/{imageType}`
+
+### Path Parameters
+
+<ParamField path="name" type="string" required>
+  Name of the artist, genre, or person.
+</ParamField>
+
+<ParamField path="imageType" type="string" required>
+  Type of image.
+</ParamField>
+
+<ParamField path="imageIndex" type="integer">
+  Image index (for artists).
+</ParamField>
+
+Supports the same query parameters as item images (maxWidth, quality, format, etc).
+
+### Response Codes
+
+- `200` - Success: Image stream returned
+- `404` - Not Found: Named item not found

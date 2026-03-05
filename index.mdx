@@ -1,97 +1,76 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Jellyfin Server Documentation"
+description: "The Free Software Media System - Build your own media server with complete control"
 ---
 
-## Setting up
+<div className="bg-[#0a1a33] rounded-lg p-12 mb-8 text-center">
+  <h1 className="text-5xl font-bold mb-4 text-[#d1d7e0]">Jellyfin Server</h1>
+  <p className="text-xl text-[#d1d7e0] mb-8">The Free Software Media System - Complete control over your media</p>
+  <div className="flex gap-4 justify-center">
+    <a href="/quickstart" className="inline-block bg-[#0082af] text-white px-8 py-3 rounded-[20px] font-semibold hover:opacity-90 transition-opacity">Get Started</a>
+    <a href="/api/authentication/overview" className="inline-block bg-transparent text-white px-8 py-3 rounded-[20px] font-semibold border border-white hover:bg-white hover:text-[#0a1a33] transition-colors">API Reference</a>
+  </div>
+</div>
 
-Get your documentation site up and running in minutes.
+## What is Jellyfin?
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+Jellyfin is a free and open-source media system that puts you in control of managing and streaming your media. It's an alternative to proprietary solutions like Emby and Plex, providing media from a dedicated server to end-user devices via multiple apps.
 
-## Make it yours
+**Key Benefits:**
+- No premium licenses or paid features
+- Full cross-platform support on .NET
+- Complete control over your data
+- Active community-driven development
+- Plugin system for extensibility
 
-Design a docs site that looks great and empowers your users.
+## Features
 
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Media Streaming" icon="play" href="/concepts/media-libraries">
+    Stream your movies, TV shows, music, and photos to any device with hardware-accelerated transcoding
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="RESTful API" icon="code" href="/development/api-overview">
+    Comprehensive REST API for building custom clients and integrations
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Multi-User Support" icon="users" href="/concepts/users-authentication">
+    Create multiple user accounts with individual libraries, preferences, and parental controls
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Live TV & DVR" icon="tv" href="/api/livetv/channels">
+    Watch and record live TV with EPG support and scheduling
   </Card>
-</Columns>
+  <Card title="Plugin System" icon="puzzle-piece" href="/concepts/plugins">
+    Extend functionality with community-developed plugins
+  </Card>
+  <Card title="Hardware Acceleration" icon="microchip" href="/setup/hardware-acceleration">
+    Support for Intel QSV, NVIDIA NVENC, AMD AMF, and VA-API
+  </Card>
+</CardGroup>
 
-## Create beautiful pages
+## Quick Links
 
-Everything you need to create world-class documentation.
+<CardGroup cols={3}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install Jellyfin on your platform
+  </Card>
+  <Card title="Configuration" icon="gear" href="/setup/configuration">
+    Configure your server
+  </Card>
+  <Card title="Building from Source" icon="hammer" href="/development/building-from-source">
+    Build and develop Jellyfin
+  </Card>
+</CardGroup>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+## API Overview
 
-## Need inspiration?
+Jellyfin provides a comprehensive REST API for all server functionality:
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
+- **Authentication** - API key and user-based authentication
+- **Media Management** - Library scanning, metadata, and organization
+- **Playback** - Streaming with transcoding and subtitle support
+- **User Management** - Multi-user support with preferences
+- **System** - Server configuration and monitoring
+- **Live TV** - Channel management and recording
+
+<Card title="Explore the API" icon="book-open" href="/api/authentication/overview">
+  View the complete API reference with endpoints, parameters, and examples
 </Card>

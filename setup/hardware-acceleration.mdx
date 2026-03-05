@@ -1,0 +1,591 @@
+---
+title: Hardware Acceleration
+description: Configure GPU-accelerated transcoding with Intel QSV, NVIDIA NVENC, AMD AMF, and VA-API
+---
+
+Hardware acceleration uses your GPU to transcode media, providing 10-20x faster performance compared to CPU-only encoding while significantly reducing CPU usage.
+
+## Supported Hardware Acceleration Types
+
+Jellyfin supports multiple hardware acceleration platforms:
+
+<CardGroup cols={2}>
+  <Card title="Intel Quick Sync" icon="microchip">
+    Intel integrated graphics (6th gen+)
+  </Card>
+  <Card title="NVIDIA NVENC" icon="server">
+    NVIDIA GPUs (GTX 900+ series)
+  </Card>
+  <Card title="AMD AMF" icon="memory">
+    AMD GPUs (GCN architecture+)
+  </Card>
+  <Card title="VA-API" icon="linux">
+    Linux video acceleration API
+  </Card>
+  <Card title="VideoToolbox" icon="apple">
+    Apple hardware (macOS/iOS)
+  </Card>
+  <Card title="Video4Linux" icon="video">
+    V4L2 M2M (Raspberry Pi, etc.)
+  </Card>
+  <Card title="Rockchip MPP" icon="chip">
+    Rockchip SoC devices
+  </Card>
+  <Card title="Software" icon="code">
+    CPU-only encoding (no GPU)
+  </Card>
+</CardGroup>
+
+## Hardware Acceleration Configuration
+
+### Enabling Hardware Acceleration
+
+In `encoding.xml`:
+
+```xml
+<HardwareAccelerationType>qsv</HardwareAccelerationType>
+<EnableHardwareEncoding>true</EnableHardwareEncoding>
+```
+
+Available types:
+- `none` - Software encoding only
+- `qsv` - Intel Quick Sync Video
+- `nvenc` - NVIDIA NVENC
+- `amf` - AMD Advanced Media Framework
+- `vaapi` - VA-API (Linux)
+- `videotoolbox` - Apple VideoToolbox
+- `v4l2m2m` - Video4Linux M2M
+- `rkmpp` - Rockchip Media Process Platform
+
+## Intel Quick Sync Video (QSV)
+
+### Requirements
+
+<Steps>
+  <Step title="Hardware Requirements">
+    - Intel CPU with integrated graphics (6th generation or newer recommended)
+    - Intel Iris Xe or UHD Graphics
+    - Compatible chipset with Quick Sync support
+  </Step>
+
+  <Step title="Driver Requirements">
+    **Linux:**
+    ```bash
+    # Install Intel media drivers
+    sudo apt-get install intel-media-va-driver-non-free
+    ```
+    
+    **Windows:**
+    Install latest Intel graphics drivers from Intel's website.
+  </Step>
+
+  <Step title="Device Permissions (Linux)">
+    Add Jellyfin user to video and render groups:
+    
+    ```bash
+    sudo usermod -aG video jellyfin
+    sudo usermod -aG render jellyfin
+    sudo systemctl restart jellyfin
+    ```
+  </Step>
+</Steps>
+
+### QSV Configuration
+
+```xml
+<HardwareAccelerationType>qsv</HardwareAccelerationType>
+<EnableHardwareEncoding>true</EnableHardwareEncoding>
+<QsvDevice></QsvDevice>
+<EnableIntelLowPowerH264HwEncoder>false</EnableIntelLowPowerH264HwEncoder>
+<EnableIntelLowPowerHevcHwEncoder>false</EnableIntelLowPowerHevcHwEncoder>
+```
+
+<Tabs>
+  <Tab title="Standard QSV">
+    For most Intel GPUs (6th-11th gen):
+    
+    ```xml
+    <HardwareAccelerationType>qsv</HardwareAccelerationType>
+    <EnableIntelLowPowerH264HwEncoder>false</EnableIntelLowPowerH264HwEncoder>
+    <EnableIntelLowPowerHevcHwEncoder>false</EnableIntelLowPowerHevcHwEncoder>
+    ```
+  </Tab>
+
+  <Tab title="Low Power Mode">
+    For Intel Xe graphics (11th gen+):
+    
+    ```xml
+    <HardwareAccelerationType>qsv</HardwareAccelerationType>
+    <EnableIntelLowPowerH264HwEncoder>true</EnableIntelLowPowerH264HwEncoder>
+    <EnableIntelLowPowerHevcHwEncoder>true</EnableIntelLowPowerHevcHwEncoder>
+    ```
+    
+    <Info>Low power mode provides better efficiency on newer architectures.</Info>
+  </Tab>
+</Tabs>
+
+### Supported Codecs (QSV)
+
+| Codec | Decode | Encode | Notes |
+|-------|--------|--------|-------|
+| H.264 | ✓ | ✓ | All QSV generations |
+| HEVC | ✓ | ✓ | 6th gen+ |
+| VP9 | ✓ | ✗ | 9th gen+ (decode only) |
+| AV1 | ✓ | ✓ | 12th gen+ |
+| MPEG-2 | ✓ | ✓ | All generations |
+| VC-1 | ✓ | ✗ | Decode only |
+
+### QSV Tone Mapping
+
+```xml
+<EnableVppTonemapping>true</EnableVppTonemapping>
+<VppTonemappingBrightness>16</VppTonemappingBrightness>
+<VppTonemappingContrast>1</VppTonemappingContrast>
+```
+
+Intel VPP (Video Post Processing) provides hardware-accelerated HDR to SDR tone mapping on supported platforms.
+
+## NVIDIA NVENC
+
+### Requirements
+
+<Steps>
+  <Step title="Hardware Requirements">
+    - NVIDIA GPU with NVENC support:
+      - GeForce GTX 900 series or newer
+      - RTX series (best performance)
+      - Quadro/Tesla professional GPUs
+  </Step>
+
+  <Step title="Driver Requirements">
+    **Linux:**
+    ```bash
+    # Install NVIDIA drivers
+    sudo apt-get install nvidia-driver-535
+    
+    # Verify installation
+    nvidia-smi
+    ```
+    
+    **Windows:**
+    Install latest GeForce or Studio drivers from NVIDIA's website.
+  </Step>
+
+  <Step title="NVENC Session Limits">
+    Consumer GPUs have encoding session limits:
+    - GTX/RTX cards: 3 concurrent sessions (can be patched)
+    - Quadro/Tesla: Unlimited sessions
+    
+    <Tip>Use [nvidia-patch](https://github.com/keylase/nvidia-patch) to remove session limits on consumer cards.</Tip>
+  </Step>
+</Steps>
+
+### NVENC Configuration
+
+```xml
+<HardwareAccelerationType>nvenc</HardwareAccelerationType>
+<EnableHardwareEncoding>true</EnableHardwareEncoding>
+<EnableEnhancedNvdecDecoder>true</EnableEnhancedNvdecDecoder>
+```
+
+### Enhanced NVDEC
+
+```xml
+<EnableEnhancedNvdecDecoder>true</EnableEnhancedNvdecDecoder>
+```
+
+Enables enhanced NVDEC decoder for:
+- Dolby Vision to SDR tone mapping
+- Better HDR support
+- Improved compatibility
+
+### Supported Codecs (NVENC)
+
+| Codec | Decode | Encode | Generation |
+|-------|--------|--------|------------|
+| H.264 | ✓ | ✓ | All NVENC |
+| HEVC | ✓ | ✓ | Maxwell+ (GTX 900+) |
+| VP9 | ✓ | ✗ | Pascal+ (GTX 10xx+) |
+| AV1 | ✓ | ✓ | Ada Lovelace (RTX 40xx) |
+| MPEG-2 | ✓ | ✗ | Decode only |
+| VC-1 | ✓ | ✗ | Decode only |
+
+### CUDA Tone Mapping
+
+NVENC supports CUDA-accelerated tone mapping:
+
+```xml
+<EnableTonemapping>true</EnableTonemapping>
+<TonemappingAlgorithm>bt2390</TonemappingAlgorithm>
+```
+
+CUDA tone mapping requires:
+- FFmpeg built with CUDA support
+- Compatible NVIDIA GPU (Pascal or newer)
+
+## AMD AMF
+
+### Requirements
+
+<Steps>
+  <Step title="Hardware Requirements">
+    - AMD GPU with GCN architecture or newer:
+      - Radeon RX 400 series or newer (recommended)
+      - Radeon VII
+      - RX 5000/6000/7000 series
+  </Step>
+
+  <Step title="Driver Requirements">
+    **Linux:**
+    ```bash
+    # Install AMD drivers and VA-API
+    sudo apt-get install mesa-va-drivers
+    ```
+    
+    **Windows:**
+    Install AMD Adrenalin drivers from AMD's website.
+  </Step>
+</Steps>
+
+### AMF Configuration
+
+```xml
+<HardwareAccelerationType>amf</HardwareAccelerationType>
+<EnableHardwareEncoding>true</EnableHardwareEncoding>
+```
+
+### Supported Codecs (AMF)
+
+| Codec | Decode | Encode | Notes |
+|-------|--------|--------|-------|
+| H.264 | ✓ | ✓ | All GCN GPUs |
+| HEVC | ✓ | ✓ | GCN 3.0+ |
+| AV1 | ✓ | ✓ | RDNA 3 (RX 7000+) |
+| VP9 | ✓ | ✗ | Decode only |
+
+<Info>On Linux, AMF uses VA-API as the backend. Consider using VA-API directly for better compatibility.</Info>
+
+## VA-API (Linux)
+
+### Requirements
+
+<Steps>
+  <Step title="Install VA-API Drivers">
+    <Tabs>
+      <Tab title="Intel">
+        ```bash
+        sudo apt-get install intel-media-va-driver-non-free
+        ```
+      </Tab>
+      
+      <Tab title="AMD">
+        ```bash
+        sudo apt-get install mesa-va-drivers
+        ```
+      </Tab>
+      
+      <Tab title="NVIDIA (Nouveau)">
+        ```bash
+        sudo apt-get install mesa-va-drivers
+        ```
+        
+        <Warning>NVIDIA proprietary drivers don't support VA-API. Use NVENC instead.</Warning>
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Verify VA-API">
+    ```bash
+    # Install vainfo utility
+    sudo apt-get install vainfo
+    
+    # Check VA-API support
+    vainfo
+    ```
+    
+    Should show available profiles and entrypoints.
+  </Step>
+
+  <Step title="Device Permissions">
+    ```bash
+    # Check render device
+    ls -l /dev/dri/renderD128
+    
+    # Add user to groups
+    sudo usermod -aG video jellyfin
+    sudo usermod -aG render jellyfin
+    sudo systemctl restart jellyfin
+    ```
+  </Step>
+</Steps>
+
+### VA-API Configuration
+
+```xml
+<HardwareAccelerationType>vaapi</HardwareAccelerationType>
+<EnableHardwareEncoding>true</EnableHardwareEncoding>
+<VaapiDevice>/dev/dri/renderD128</VaapiDevice>
+```
+
+<Info>The default VA-API device is `/dev/dri/renderD128`, which works for most single-GPU systems.</Info>
+
+### Multiple GPUs
+
+For systems with multiple GPUs:
+
+```bash
+# List render devices
+ls -l /dev/dri/
+
+# Output:
+# renderD128  (usually Intel iGPU)
+# renderD129  (usually discrete GPU)
+```
+
+Specify the desired device:
+
+```xml
+<VaapiDevice>/dev/dri/renderD129</VaapiDevice>
+```
+
+### VA-API Tone Mapping
+
+```xml
+<EnableTonemapping>true</EnableTonemapping>
+<TonemappingAlgorithm>bt2390</TonemappingAlgorithm>
+```
+
+VA-API supports hardware tone mapping on Intel GPUs (9th gen+).
+
+## Apple VideoToolbox
+
+### Requirements
+
+- macOS device with Apple Silicon or Intel CPU with integrated graphics
+- macOS 10.13 or newer
+
+### VideoToolbox Configuration
+
+```xml
+<HardwareAccelerationType>videotoolbox</HardwareAccelerationType>
+<EnableHardwareEncoding>true</EnableHardwareEncoding>
+<EnableVideoToolboxTonemapping>true</EnableVideoToolboxTonemapping>
+```
+
+### Supported Codecs (VideoToolbox)
+
+| Codec | Decode | Encode | Notes |
+|-------|--------|--------|-------|
+| H.264 | ✓ | ✓ | All devices |
+| HEVC | ✓ | ✓ | A10+ / 6th gen Intel+ |
+| VP9 | ✓ | ✗ | Decode only |
+
+## Docker Configuration
+
+### Intel QSV (Docker)
+
+<CodeGroup>
+```yaml docker-compose.yml
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - "109"  # render group ID
+    volumes:
+      - /path/to/config:/config
+      - /path/to/media:/media
+```
+
+```bash Docker Run
+docker run -d \
+  --name jellyfin \
+  --device /dev/dri:/dev/dri \
+  --group-add 109 \
+  -v /path/to/config:/config \
+  -v /path/to/media:/media \
+  jellyfin/jellyfin:latest
+```
+</CodeGroup>
+
+<Tip>Find your render group ID with: `getent group render | cut -d: -f3`</Tip>
+
+### NVIDIA (Docker)
+
+<CodeGroup>
+```yaml docker-compose.yml
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,video,utility
+    volumes:
+      - /path/to/config:/config
+      - /path/to/media:/media
+```
+
+```bash Docker Run
+docker run -d \
+  --name jellyfin \
+  --runtime nvidia \
+  -e NVIDIA_VISIBLE_DEVICES=all \
+  -e NVIDIA_DRIVER_CAPABILITIES=compute,video,utility \
+  -v /path/to/config:/config \
+  -v /path/to/media:/media \
+  jellyfin/jellyfin:latest
+```
+</CodeGroup>
+
+<Warning>Requires [NVIDIA Container Toolkit](https://github.com/NVIDIA/nvidia-docker) installed on the host.</Warning>
+
+### AMD VA-API (Docker)
+
+```yaml
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    devices:
+      - /dev/dri:/dev/dri
+    group_add:
+      - "109"  # render group
+      - "44"   # video group
+    volumes:
+      - /path/to/config:/config
+      - /path/to/media:/media
+```
+
+## Performance Comparison
+
+Typical 1080p H.264 transcoding performance:
+
+| Method | Speed | CPU Usage | Power |
+|--------|-------|-----------|-------|
+| Software (libx264) | 1x | 100% | High |
+| Intel QSV | 10-15x | 10-20% | Low |
+| NVIDIA NVENC | 15-20x | 5-10% | Medium |
+| AMD AMF | 10-15x | 10-15% | Medium |
+| VA-API | 10-15x | 10-20% | Low |
+
+<Info>Speed multipliers are approximate and vary based on hardware, source material, and encoding settings.</Info>
+
+## Troubleshooting
+
+<Steps>
+  <Step title="Hardware Acceleration Not Working">
+    Check:
+    ```bash
+    # Verify device exists
+    ls -l /dev/dri/
+    
+    # Check permissions
+    id jellyfin
+    
+    # Test VA-API (if applicable)
+    sudo -u jellyfin vainfo
+    
+    # Check Jellyfin logs
+    journalctl -u jellyfin -f
+    ```
+  </Step>
+
+  <Step title="Permission Denied Errors">
+    ```bash
+    # Add user to required groups
+    sudo usermod -aG video,render jellyfin
+    sudo systemctl restart jellyfin
+    
+    # Verify group membership
+    groups jellyfin
+    ```
+  </Step>
+
+  <Step title="Quality Issues">
+    - Reduce CRF value for higher quality
+    - Check if source supports hardware decoding
+    - Verify hardware encoder supports desired codec
+    - Try different tone mapping algorithm
+  </Step>
+
+  <Step title="NVIDIA Session Limit">
+    If you hit the 3-session limit on consumer GPUs:
+    
+    - Apply [nvidia-patch](https://github.com/keylase/nvidia-patch)
+    - Use a Quadro/Tesla GPU (no limits)
+    - Reduce concurrent transcoding sessions
+  </Step>
+
+  <Step title="Docker Hardware Access">
+    Ensure:
+    - Devices are properly mounted (`--device`)
+    - Correct group IDs are added (`--group-add`)
+    - Runtime is specified for NVIDIA (`--runtime nvidia`)
+  </Step>
+</Steps>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Match Hardware to Workload" icon="balance-scale">
+    Use Intel QSV for efficiency, NVIDIA for maximum performance, and VA-API for compatibility.
+  </Card>
+  
+  <Card title="Enable Hardware Decoding" icon="download">
+    Configure hardware decoding for codecs your GPU supports to reduce CPU usage further.
+  </Card>
+  
+  <Card title="Monitor Temperatures" icon="temperature-high">
+    Ensure adequate cooling, especially during sustained transcoding sessions.
+  </Card>
+  
+  <Card title="Test Before Deployment" icon="vial">
+    Verify quality and compatibility with your media library before enabling for all users.
+  </Card>
+</CardGroup>
+
+## Codec Selection by Platform
+
+<Tabs>
+  <Tab title="Intel QSV">
+    Best for:
+    - H.264/HEVC transcoding
+    - Low power consumption
+    - Integrated graphics systems
+    - Multiple concurrent streams (no session limits)
+  </Tab>
+
+  <Tab title="NVIDIA NVENC">
+    Best for:
+    - Maximum transcoding speed
+    - High-quality HEVC encoding
+    - Modern RTX cards for AV1
+    - Systems with dedicated GPU
+  </Tab>
+
+  <Tab title="AMD AMF">
+    Best for:
+    - AMD-based systems
+    - H.264/HEVC encoding
+    - RX 7000 series for AV1
+  </Tab>
+
+  <Tab title="VA-API">
+    Best for:
+    - Linux environments
+    - Intel/AMD GPUs
+    - Open-source stack preference
+  </Tab>
+</Tabs>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Transcoding Settings" icon="sliders" href="./transcoding">
+    Fine-tune quality, codecs, and performance options
+  </Card>
+  <Card title="Network Configuration" icon="network-wired" href="./networking">
+    Configure remote access and bandwidth limits
+  </Card>
+</CardGroup>

@@ -1,0 +1,554 @@
+---
+title: Contributing to Jellyfin
+description: Guidelines for contributing code to the Jellyfin Server project
+---
+
+We welcome contributions from the community! This guide explains the development workflow, coding standards, and how to submit changes to Jellyfin Server.
+
+## Before You Start
+
+<Steps>
+  <Step title="Read the Community Guidelines">
+    Review the [community standards](https://jellyfin.org/docs/general/community-standards) and [code of conduct](https://jellyfin.org/docs/general/community-standards#code-of-conduct).
+  </Step>
+  
+  <Step title="Check Existing Issues">
+    Browse [GitHub Issues](https://github.com/jellyfin/jellyfin/issues) to see if your bug or feature is already reported.
+  </Step>
+  
+  <Step title="Discuss Major Changes">
+    For significant features or architectural changes, open a [discussion](https://github.com/jellyfin/jellyfin/discussions) or issue first to get feedback before investing time in development.
+  </Step>
+</Steps>
+
+<Info>
+  New to contributing? Check out the [Jellyfin contribution guide](https://jellyfin.org/contribute) to find where you can help.
+</Info>
+
+## Development Setup
+
+Before contributing, set up your development environment:
+
+<Steps>
+  <Step title="Fork the Repository">
+    1. Go to [github.com/jellyfin/jellyfin](https://github.com/jellyfin/jellyfin)
+    2. Click **Fork** in the top right
+    3. Clone your fork:
+       ```bash
+       git clone https://github.com/YOUR-USERNAME/jellyfin.git
+       cd jellyfin
+       ```
+  </Step>
+  
+  <Step title="Add Upstream Remote">
+    Add the main repository as upstream:
+    ```bash
+    git remote add upstream https://github.com/jellyfin/jellyfin.git
+    ```
+  </Step>
+  
+  <Step title="Set Up Development Environment">
+    Follow the [Building from Source](./building-from-source) guide to install prerequisites and build the project.
+  </Step>
+</Steps>
+
+## Development Workflow
+
+<Steps>
+  <Step title="Create a Feature Branch">
+    Create a new branch for your work:
+    ```bash
+    git checkout -b feature/my-awesome-feature
+    ```
+    
+    Branch naming conventions:
+    - `feature/description` - New features
+    - `fix/description` - Bug fixes
+    - `refactor/description` - Code refactoring
+    - `docs/description` - Documentation changes
+  </Step>
+  
+  <Step title="Make Your Changes">
+    Write your code following the [coding standards](#coding-standards) below.
+    
+    <Tip>
+      Make small, focused commits that do one thing well. This makes code review easier.
+    </Tip>
+  </Step>
+  
+  <Step title="Write Tests">
+    Add or update tests for your changes:
+    
+    - Unit tests in `tests/` directory
+    - Follow existing test patterns
+    - Aim for good code coverage
+    
+    Run tests locally:
+    ```bash
+    dotnet test
+    ```
+  </Step>
+  
+  <Step title="Commit Your Changes">
+    Write clear, descriptive commit messages:
+    
+    ```bash
+    git add .
+    git commit -m "Add feature: description of what you did"
+    ```
+    
+    Follow the [commit message guidelines](#commit-message-guidelines).
+  </Step>
+  
+  <Step title="Keep Your Branch Updated">
+    Regularly sync with upstream:
+    ```bash
+    git fetch upstream
+    git rebase upstream/master
+    ```
+  </Step>
+  
+  <Step title="Push to Your Fork">
+    ```bash
+    git push origin feature/my-awesome-feature
+    ```
+  </Step>
+</Steps>
+
+## Submitting a Pull Request
+
+<Steps>
+  <Step title="Create Pull Request">
+    1. Go to your fork on GitHub
+    2. Click **Pull Request**
+    3. Select your branch and the `master` branch of jellyfin/jellyfin
+    4. Fill out the PR template
+  </Step>
+  
+  <Step title="Write a Clear Description">
+    Your PR description should:
+    
+    - Explain **what** changes you made
+    - Explain **why** these changes were necessary
+    - Reference any related issues (e.g., "Fixes #1234")
+    - Describe how to test the changes
+    - Note any breaking changes
+    
+    See the [PR template](.github/pull_request_template.md) for guidance.
+  </Step>
+  
+  <Step title="Respond to Review Feedback">
+    - Address reviewer comments promptly
+    - Make requested changes in new commits
+    - Don't force-push after review starts (squashing happens at merge)
+    - Ask questions if feedback is unclear
+  </Step>
+  
+  <Step title="Wait for CI Checks">
+    Your PR will be automatically tested:
+    - Build verification
+    - Unit tests
+    - Code analyzers
+    - Style checks
+    
+    <Note>
+      All checks must pass before your PR can be merged.
+    </Note>
+  </Step>
+</Steps>
+
+### Pull Request Template
+
+Jellyfin uses a PR template (see `.github/pull_request_template.md`):
+
+```markdown
+**Changes**
+<!-- Describe your changes here in 1-5 sentences. -->
+
+**Issues**
+<!-- Tag any issues that this PR solves here.
+ex. Fixes #123 -->
+```
+
+<Tip>
+  Write your PR title in the imperative mood: "Fix X", "Add Y", not "Fixed X" or "Added Y". See [How to Write a Git Commit Message](https://chris.beams.io/posts/git-commit/) for more guidance.
+</Tip>
+
+## Coding Standards
+
+Jellyfin follows strict coding standards enforced by analyzers:
+
+### C# Style Guidelines
+
+<CardGroup cols={2}>
+  <Card title="Use Modern C# Features" icon="code">
+    - Use nullable reference types (`#nullable enable`)
+    - Use pattern matching where appropriate
+    - Use expression-bodied members for simple properties/methods
+    - Use `var` for obvious types
+  </Card>
+  
+  <Card title="Follow .NET Conventions" icon="microsoft">
+    - PascalCase for public members
+    - camelCase for private fields (with `_` prefix)
+    - Use meaningful, descriptive names
+    - Avoid abbreviations
+  </Card>
+  
+  <Card title="Add XML Documentation" icon="book">
+    Document public APIs:
+    ```csharp
+    /// <summary>
+    /// Gets system information.
+    /// </summary>
+    /// <returns>System info object.</returns>
+    public SystemInfo GetSystemInfo()
+    ```
+  </Card>
+  
+  <Card title="Use Code Analyzers" icon="magnifying-glass">
+    The project uses multiple analyzers:
+    - StyleCop (style rules)
+    - SerilogAnalyzer (logging)
+    - IDisposableAnalyzers (resource management)
+    - MultithreadingAnalyzer (concurrency)
+  </Card>
+</CardGroup>
+
+### EditorConfig
+
+Jellyfin includes an `.editorconfig` file that defines formatting rules. Ensure your editor/IDE respects these settings:
+
+```ini Key Rules
+[*.cs]
+indent_style = space
+indent_size = 4
+end_of_line = lf
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+```
+
+<Tip>
+  Visual Studio, VS Code, and Rider all support EditorConfig automatically.
+</Tip>
+
+### Dependency Injection
+
+Jellyfin uses dependency injection extensively:
+
+```csharp Good Example
+public class MyController : BaseJellyfinApiController
+{
+    private readonly ILibraryManager _libraryManager;
+    private readonly ILogger<MyController> _logger;
+    
+    public MyController(
+        ILibraryManager libraryManager,
+        ILogger<MyController> logger)
+    {
+        _libraryManager = libraryManager;
+        _logger = logger;
+    }
+}
+```
+
+<Warning>
+  Avoid using static instances or service locators. Request dependencies through constructors.
+</Warning>
+
+### Async/Await
+
+Use async/await correctly:
+
+```csharp
+// ✅ Good - async method with await
+public async Task<string> GetDataAsync()
+{
+    return await _httpClient.GetStringAsync("http://example.com");
+}
+
+// ❌ Bad - async without await
+public async Task<string> GetDataAsync()
+{
+    return _cache.GetValue("key");
+}
+
+// ✅ Good - no async needed
+public Task<string> GetDataAsync()
+{
+    return Task.FromResult(_cache.GetValue("key"));
+}
+```
+
+### Exception Handling
+
+```csharp
+try
+{
+    await ProcessItemAsync(item);
+}
+catch (HttpRequestException ex)
+{
+    _logger.LogError(ex, "Failed to fetch data for item {ItemId}", item.Id);
+    // Handle specific exception
+}
+catch (Exception ex)
+{
+    _logger.LogError(ex, "Unexpected error processing item {ItemId}", item.Id);
+    throw; // Re-throw if you can't handle it
+}
+```
+
+## Commit Message Guidelines
+
+Write clear, descriptive commit messages following these rules:
+
+### Format
+
+```
+Short summary (50 chars or less)
+
+More detailed explanation if needed. Wrap at 72 characters.
+Explain the problem this commit solves and why this approach
+was chosen.
+
+Fixes #123
+```
+
+### Rules
+
+<Steps>
+  <Step title="Use Imperative Mood">
+    Write as if giving a command:
+    - ✅ "Fix bug in user authentication"
+    - ❌ "Fixed bug in user authentication"
+    - ❌ "Fixes bug in user authentication"
+  </Step>
+  
+  <Step title="Keep First Line Short">
+    - Maximum 50 characters
+    - Capitalize first word
+    - No period at the end
+  </Step>
+  
+  <Step title="Provide Context in Body">
+    - Explain **why** not **what** (code shows what)
+    - Wrap at 72 characters
+    - Reference issues with `Fixes #123` or `Closes #456`
+  </Step>
+</Steps>
+
+### Examples
+
+<CodeGroup>
+```text Good Commit Message
+Add pagination support to library API
+
+The Items endpoint now supports startIndex and limit parameters
+to enable client-side pagination. This reduces initial load time
+for large libraries and improves performance.
+
+Fixes #1234
+```
+
+```text Bad Commit Message
+update code
+
+changed some files
+```
+</CodeGroup>
+
+<Info>
+  Read [How to Write a Git Commit Message](https://chris.beams.io/posts/git-commit/) for more detailed guidance.
+</Info>
+
+## Testing Guidelines
+
+All code changes should include appropriate tests:
+
+### Unit Tests
+
+Write unit tests in the corresponding test project:
+
+```csharp tests/Jellyfin.Api.Tests/Controllers/SystemControllerTests.cs
+using Xunit;
+using Jellyfin.Api.Controllers;
+
+public class SystemControllerTests
+{
+    [Fact]
+    public void GetSystemInfo_ReturnsValidInfo()
+    {
+        // Arrange
+        var controller = CreateController();
+        
+        // Act
+        var result = controller.GetSystemInfo();
+        
+        // Assert
+        Assert.NotNull(result);
+        Assert.NotNull(result.Value);
+    }
+}
+```
+
+### Integration Tests
+
+For API endpoint tests, use the integration test project:
+
+```bash
+dotnet test tests/Jellyfin.Server.Integration.Tests
+```
+
+### Test Structure
+
+Follow the Arrange-Act-Assert pattern:
+
+```csharp
+[Fact]
+public async Task GetItem_WithValidId_ReturnsItem()
+{
+    // Arrange - Set up test data and mocks
+    var itemId = Guid.NewGuid();
+    var expectedItem = new Movie { Id = itemId };
+    
+    // Act - Execute the code being tested
+    var result = await _controller.GetItem(itemId);
+    
+    // Assert - Verify the results
+    Assert.NotNull(result);
+    Assert.Equal(itemId, result.Id);
+}
+```
+
+## Code Review Process
+
+All pull requests go through code review:
+
+<Steps>
+  <Step title="Automated Checks">
+    - CI builds and tests your code
+    - Code analyzers check style and quality
+    - All checks must pass
+  </Step>
+  
+  <Step title="Maintainer Review">
+    - At least one maintainer reviews your code
+    - They may request changes or ask questions
+    - Address feedback in new commits
+  </Step>
+  
+  <Step title="Approval and Merge">
+    - Once approved, a maintainer will merge your PR
+    - Commits may be squashed into one
+    - Your contribution will be in the next release!
+  </Step>
+</Steps>
+
+### What Reviewers Look For
+
+<CardGroup cols={2}>
+  <Card title="Code Quality" icon="star">
+    - Follows coding standards
+    - Well-structured and maintainable
+    - Proper error handling
+    - No code smells
+  </Card>
+  
+  <Card title="Functionality" icon="check">
+    - Solves the stated problem
+    - No breaking changes (unless justified)
+    - Edge cases handled
+    - Performance considerations
+  </Card>
+  
+  <Card title="Testing" icon="flask">
+    - Adequate test coverage
+    - Tests actually verify functionality
+    - Integration tests for new features
+  </Card>
+  
+  <Card title="Documentation" icon="book">
+    - XML docs for public APIs
+    - Clear commit messages
+    - Updated documentation if needed
+  </Card>
+</CardGroup>
+
+## Common Pitfalls to Avoid
+
+<Warning>
+  **Don't:**
+  - Submit large PRs that change many unrelated things
+  - Force-push after review has started
+  - Ignore CI failures
+  - Skip writing tests
+  - Make style-only changes without discussing first
+  - Add dependencies without justification
+</Warning>
+
+<Tip>
+  **Do:**
+  - Keep PRs focused on one issue/feature
+  - Write clear commit messages
+  - Respond to review feedback promptly
+  - Ask questions if unsure
+  - Test your changes thoroughly
+  - Update documentation
+</Tip>
+
+## Getting Help
+
+If you need help contributing:
+
+<CardGroup cols={2}>
+  <Card title="Matrix Chat" icon="message" href="https://matrix.to/#/#jellyfinorg:matrix.org">
+    Join the community chat for real-time help
+  </Card>
+  
+  <Card title="GitHub Discussions" icon="comments" href="https://github.com/jellyfin/jellyfin/discussions">
+    Ask questions and discuss ideas
+  </Card>
+  
+  <Card title="Contributing Docs" icon="book" href="https://jellyfin.org/docs/general/contributing/">
+    Read the full contributing documentation
+  </Card>
+  
+  <Card title="Issue Tracker" icon="bug" href="https://github.com/jellyfin/jellyfin/issues">
+    Report bugs and track feature requests
+  </Card>
+</CardGroup>
+
+## Recognition
+
+Your contributions are valued! Contributors are:
+
+- Listed in the [CONTRIBUTORS.md](https://github.com/jellyfin/jellyfin/blob/master/CONTRIBUTORS.md) file
+- Mentioned in release notes
+- Part of the Jellyfin community
+
+<Info>
+  Check out the [Jellyfin Contributor Graph](https://github.com/jellyfin/jellyfin/graphs/contributors) to see all contributors.
+</Info>
+
+## Additional Resources
+
+<CardGroup cols={2}>
+  <Card title="Building from Source" icon="hammer" href="./building-from-source">
+    Set up your development environment
+  </Card>
+  <Card title="API Overview" icon="code" href="./api-overview">
+    Learn about the Jellyfin API architecture
+  </Card>
+  <Card title="Plugin Development" icon="plug" href="./plugin-development">
+    Extend Jellyfin with plugins
+  </Card>
+  <Card title="Feature Requests" icon="lightbulb" href="https://features.jellyfin.org">
+    Vote on and suggest new features
+  </Card>
+</CardGroup>
+
+## Thank You!
+
+Thank you for contributing to Jellyfin! Every contribution, no matter how small, helps make Jellyfin better for everyone.

@@ -1,0 +1,319 @@
+---
+title: Architecture
+description: Understanding Jellyfin Server's architecture and core components
+---
+
+Jellyfin Server is built on .NET and follows a modular, layered architecture that separates concerns and enables extensibility through plugins. The server is designed to manage media libraries, handle user authentication, stream content, and provide a RESTful API for client applications.
+
+## Core Components
+
+The Jellyfin Server architecture consists of several key layers and components:
+
+### Application Host
+
+The `ApplicationHost` is the central orchestrator of the Jellyfin Server, responsible for initializing and managing all core services.
+
+<CodeGroup>
+```csharp Jellyfin.Server/Program.cs
+public static async Task StartApp(StartupOptions options)
+{
+    ServerApplicationPaths appPaths = StartupHelpers.CreateApplicationPaths(options);
+    
+    // Initialize logging
+    await StartupHelpers.InitLoggingConfigFile(appPaths).ConfigureAwait(false);
+    
+    // Create application configuration
+    IConfiguration startupConfig = CreateAppConfiguration(options, appPaths);
+    
+    // Start the server
+    await StartServer(appPaths, options, startupConfig).ConfigureAwait(false);
+}
+```
+
+```csharp Emby.Server.Implementations/ApplicationHost.cs
+public abstract class ApplicationHost : IServerApplicationHost, IDisposable
+{
+    private readonly PluginManager _pluginManager;
+    private readonly IXmlSerializer _xmlSerializer;
+    
+    protected ApplicationHost(
+        IServerApplicationPaths applicationPaths,
+        ILoggerFactory loggerFactory,
+        IStartupOptions options,
+        IConfiguration startupConfig)
+    {
+        ApplicationPaths = applicationPaths;
+        LoggerFactory = loggerFactory;
+        ConfigurationManager = new ServerConfigurationManager(
+            ApplicationPaths, LoggerFactory, _xmlSerializer);
+        _pluginManager = new PluginManager(
+            LoggerFactory.CreateLogger<PluginManager>(),
+            this,
+            ConfigurationManager.Configuration,
+            ApplicationPaths.PluginsPath,
+            ApplicationVersion);
+    }
+}
+```
+</CodeGroup>
+
+### Layer Structure
+
+Jellyfin follows a clean architecture pattern with distinct layers:
+
+<Steps>
+  <Step title="Jellyfin.Api - REST API Layer">
+    ASP.NET Core controllers that expose HTTP endpoints for client applications. Handles request validation, authentication, and response serialization.
+    
+    **Location:** `Jellyfin.Api/Controllers/`
+  </Step>
+  
+  <Step title="MediaBrowser.Controller - Interface Layer">
+    Defines interfaces and contracts for all core services. This layer provides abstractions for library management, user management, authentication, and more.
+    
+    **Location:** `MediaBrowser.Controller/`
+  </Step>
+  
+  <Step title="Emby.Server.Implementations - Business Logic">
+    Implements the core business logic, including library scanning, metadata retrieval, session management, and scheduled tasks.
+    
+    **Location:** `Emby.Server.Implementations/`
+  </Step>
+  
+  <Step title="Jellyfin.Data - Data Layer">
+    Entity Framework Core models and database context for persisting application data.
+    
+    **Location:** `Jellyfin.Database/`
+  </Step>
+</Steps>
+
+## Service Registration
+
+Services are registered using ASP.NET Core's dependency injection container:
+
+```csharp Jellyfin.Server/CoreAppHost.cs
+protected override void RegisterServices(IServiceCollection serviceCollection)
+{
+    // Image processing
+    serviceCollection.AddSingleton(typeof(IImageEncoder), typeof(SkiaEncoder));
+    
+    // Core services
+    serviceCollection.AddEventServices();
+    serviceCollection.AddSingleton<IBaseItemManager, BaseItemManager>();
+    serviceCollection.AddSingleton<IEventManager, EventManager>();
+    
+    // User management
+    serviceCollection.AddSingleton<IUserManager, UserManager>();
+    serviceCollection.AddSingleton<IAuthenticationProvider, DefaultAuthenticationProvider>();
+    serviceCollection.AddSingleton<IPasswordResetProvider, DefaultPasswordResetProvider>();
+    
+    // Device and session management
+    serviceCollection.AddSingleton<IDeviceManager, DeviceManager>();
+    serviceCollection.AddScoped<IAuthenticationManager, AuthenticationManager>();
+}
+```
+
+## Data Flow
+
+The typical data flow through the Jellyfin Server architecture:
+
+<Tabs>
+  <Tab title="Client Request">
+    1. **Client** sends HTTP request to Jellyfin API endpoint
+    2. **API Controller** receives and validates the request
+    3. **Authentication Middleware** verifies user credentials and permissions
+    4. **Business Logic** processes the request using injected services
+    5. **Repository Layer** retrieves or persists data to the database
+    6. **Response** is serialized and returned to the client
+  </Tab>
+  
+  <Tab title="Library Scan">
+    1. **LibraryMonitor** detects file system changes
+    2. **LibraryManager** initiates scan of affected directories
+    3. **Resolvers** identify media types and create BaseItem objects
+    4. **ProviderManager** fetches metadata from configured providers
+    5. **ItemRepository** saves items and metadata to database
+    6. **Events** notify clients of library changes via WebSocket
+  </Tab>
+  
+  <Tab title="Media Streaming">
+    1. **Client** requests media playback
+    2. **MediaSourceManager** determines available media sources
+    3. **TranscodeManager** checks if transcoding is needed
+    4. **FFmpeg** transcodes media if required
+    5. **HTTP Stream** delivers media to client (HLS/DASH)
+    6. **SessionManager** tracks playback progress
+  </Tab>
+</Tabs>
+
+## Key Managers and Services
+
+### LibraryManager
+
+Manages the media library, including item resolution, metadata, and library events.
+
+```csharp MediaBrowser.Controller/Library/ILibraryManager.cs
+public interface ILibraryManager
+{
+    event EventHandler<ItemChangeEventArgs>? ItemAdded;
+    event EventHandler<ItemChangeEventArgs>? ItemUpdated;
+    event EventHandler<ItemChangeEventArgs>? ItemRemoved;
+    
+    AggregateFolder RootFolder { get; }
+    bool IsScanRunning { get; }
+    
+    BaseItem? ResolvePath(
+        FileSystemMetadata fileInfo,
+        Folder? parent = null,
+        IDirectoryService? directoryService = null);
+    
+    Task ValidateMediaLibrary(IProgress<double> progress, 
+        CancellationToken cancellationToken);
+}
+```
+
+<Info>
+  The `LibraryManager` uses a caching layer (`FastConcurrentLru`) to improve performance when accessing frequently requested items.
+</Info>
+
+### UserManager
+
+Handles user creation, authentication, and policy management.
+
+```csharp MediaBrowser.Controller/Library/IUserManager.cs
+public interface IUserManager
+{
+    IEnumerable<User> Users { get; }
+    
+    User? GetUserById(Guid id);
+    User? GetUserByName(string name);
+    
+    Task<User> CreateUserAsync(string name);
+    Task UpdateUserAsync(User user);
+    Task DeleteUserAsync(Guid userId);
+    
+    Task<User?> AuthenticateUser(
+        string username, 
+        string password, 
+        string remoteEndPoint, 
+        bool isUserSession);
+}
+```
+
+### PluginManager
+
+Discovrs and loads plugins from the plugins directory, managing their lifecycle.
+
+```csharp Emby.Server.Implementations/Plugins/PluginManager.cs
+public sealed class PluginManager : IPluginManager
+{
+    private readonly List<LocalPlugin> _plugins;
+    
+    public IEnumerable<Assembly> LoadAssemblies()
+    {
+        foreach (var plugin in _plugins)
+        {
+            if (plugin.IsEnabledAndSupported == false)
+            {
+                _logger.LogInformation(
+                    "Skipping disabled plugin {Version} of {Name}", 
+                    plugin.Version, plugin.Name);
+                continue;
+            }
+            
+            var assemblyLoadContext = new PluginLoadContext(plugin.Path);
+            foreach (var file in plugin.DllFiles)
+            {
+                assemblies.Add(assemblyLoadContext.LoadFromAssemblyPath(file));
+            }
+        }
+    }
+}
+```
+
+## Database Architecture
+
+Jellyfin uses SQLite with Entity Framework Core for data persistence:
+
+- **JellyfinDbContext**: Main database context for user data, permissions, and preferences
+- **ItemRepository**: Manages media items and their metadata
+- **UserDataRepository**: Stores user playback positions and watch history
+
+<Warning>
+  Jellyfin maintains two separate databases: the main Jellyfin database (users, settings) and the library database (media items). This is a legacy design being gradually refactored.
+</Warning>
+
+## Migration System
+
+The server includes a migration system for database schema updates:
+
+```csharp Jellyfin.Server/Program.cs
+private static async Task ApplyStartupMigrationAsync(
+    ServerApplicationPaths appPaths, 
+    IConfiguration startupConfig)
+{
+    var jellyfinMigrationService = 
+        ActivatorUtilities.CreateInstance<JellyfinMigrationService>(startupService);
+    
+    await jellyfinMigrationService.CheckFirstTimeRunOrMigration(appPaths)
+        .ConfigureAwait(false);
+    
+    await jellyfinMigrationService.MigrateStepAsync(
+        JellyfinMigrationStageTypes.PreInitialisation, startupService)
+        .ConfigureAwait(false);
+}
+```
+
+## Configuration Management
+
+Configuration is loaded from multiple sources in priority order:
+
+1. In-memory default configuration
+2. JSON configuration files (`logging.json`, `network.xml`, `system.xml`)
+3. Environment variables (prefixed with `JELLYFIN_`)
+4. Command-line arguments
+
+```csharp Jellyfin.Server/Program.cs
+private static IConfigurationBuilder ConfigureAppConfiguration(
+    this IConfigurationBuilder config,
+    StartupOptions commandLineOpts,
+    IApplicationPaths appPaths)
+{
+    return config
+        .SetBasePath(appPaths.ConfigurationDirectoryPath)
+        .AddInMemoryCollection(inMemoryDefaultConfig)
+        .AddJsonFile("logging.default.json", optional: false, reloadOnChange: true)
+        .AddJsonFile("logging.json", optional: true, reloadOnChange: true)
+        .AddEnvironmentVariables("JELLYFIN_")
+        .AddInMemoryCollection(commandLineOpts.ConvertToConfig());
+}
+```
+
+## WebSocket Support
+
+Real-time updates are delivered to clients via WebSocket connections:
+
+- **SessionWebSocketListener**: Sends session state updates
+- **ActivityLogWebSocketListener**: Broadcasts activity log entries
+- **ScheduledTasksWebSocketListener**: Notifies about scheduled task progress
+
+<Tip>
+  WebSocket listeners are automatically registered and managed by the `WebSocketManager` service.
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Media Libraries" icon="folder-open" href="/concepts/media-libraries">
+    Learn how Jellyfin organizes and scans media
+  </Card>
+  <Card title="Users & Authentication" icon="users" href="/concepts/users-authentication">
+    Understand the user system and authentication
+  </Card>
+  <Card title="Plugins" icon="puzzle-piece" href="/concepts/plugins">
+    Extend Jellyfin with custom plugins
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/authentication/overview">
+    Explore the REST API endpoints
+  </Card>
+</CardGroup>

@@ -1,0 +1,345 @@
+---
+title: "Transcoding"
+description: "Transcoding parameters for real-time media conversion"
+---
+
+## Overview
+
+Jellyfin's transcoding system converts media files in real-time to formats compatible with client devices. The transcoding engine supports extensive customization of output parameters including codecs, bitrates, resolutions, and more.
+
+## Transcoding Parameters
+
+### Video Codec Parameters
+
+<ParamField query="videoCodec" type="string">
+  Specify the video codec to encode to. Common values:
+  - `h264` - H.264/AVC (widely compatible)
+  - `hevc` - H.265/HEVC (better compression)
+  - `vp9` - VP9 (open format)
+  - `av1` - AV1 (next-gen codec)
+  
+  If omitted, the server will auto-select based on the URL's extension and client capabilities.
+</ParamField>
+
+<ParamField query="profile" type="string">
+  Specify an encoder profile (varies by encoder):
+  - H.264: `baseline`, `main`, `high`
+  - HEVC: `main`, `main10`
+  
+  Higher profiles offer better compression but require more capable hardware.
+</ParamField>
+
+<ParamField query="level" type="string">
+  Specify a level for the encoder profile:
+  - Examples: `3.0`, `3.1`, `4.0`, `4.1`, `5.0`, `5.1`
+  
+  Levels define decode complexity and memory requirements.
+</ParamField>
+
+<ParamField query="requireAvc" type="boolean" default="false">
+  Whether to require AVC (H.264) encoding
+</ParamField>
+
+### Video Quality Parameters
+
+<ParamField query="videoBitRate" type="integer">
+  Specify a video bitrate to encode to in bits per second:
+  - SD (480p): `1500000` (1.5 Mbps)
+  - HD (720p): `3000000` (3 Mbps)
+  - Full HD (1080p): `5000000` (5 Mbps)
+  - 4K (2160p): `15000000` (15 Mbps)
+  
+  If omitted, encoder defaults will be used.
+</ParamField>
+
+<ParamField query="maxVideoBitDepth" type="integer">
+  The maximum video bit depth (8, 10, 12). Higher values provide better color accuracy but require more bandwidth.
+</ParamField>
+
+<ParamField query="maxRefFrames" type="integer">
+  The maximum number of reference frames. More reference frames improve compression but increase decode complexity.
+</ParamField>
+
+### Resolution Parameters
+
+<ParamField query="width" type="integer">
+  The fixed horizontal resolution of the encoded video in pixels. Use this when you need an exact output size.
+</ParamField>
+
+<ParamField query="height" type="integer">
+  The fixed vertical resolution of the encoded video in pixels.
+</ParamField>
+
+<ParamField query="maxWidth" type="integer">
+  The maximum horizontal resolution. The video will be downscaled if it exceeds this width while maintaining aspect ratio.
+</ParamField>
+
+<ParamField query="maxHeight" type="integer">
+  The maximum vertical resolution. The video will be downscaled if it exceeds this height while maintaining aspect ratio.
+</ParamField>
+
+**Common Resolutions:**
+- 480p SD: 720x480 (16:9) or 640x480 (4:3)
+- 720p HD: 1280x720
+- 1080p Full HD: 1920x1080
+- 1440p QHD: 2560x1440
+- 4K UHD: 3840x2160
+
+### Frame Rate Parameters
+
+<ParamField query="framerate" type="number">
+  A specific video framerate to encode to (e.g., `23.976`, `24`, `25`, `29.97`, `30`, `50`, `59.94`, `60`)
+  
+  Generally this should be omitted unless the device has specific requirements.
+</ParamField>
+
+<ParamField query="maxFramerate" type="number">
+  A specific maximum video framerate. Video will be downsampled if it exceeds this rate.
+</ParamField>
+
+### Audio Codec Parameters
+
+<ParamField query="audioCodec" type="string">
+  Specify the audio codec to encode to. Common values:
+  - `aac` - Advanced Audio Coding (widely compatible)
+  - `mp3` - MPEG Audio Layer 3 (universal compatibility)
+  - `opus` - Opus (excellent quality/compression)
+  - `ac3` - Dolby Digital
+  - `eac3` - Dolby Digital Plus
+  - `flac` - Free Lossless Audio Codec
+  - `vorbis` - Ogg Vorbis
+  
+  If omitted, the server will auto-select.
+</ParamField>
+
+<ParamField query="audioBitRate" type="integer">
+  Specify an audio bitrate to encode to in bits per second:
+  - Low quality: `64000` (64 kbps)
+  - Standard quality: `128000` (128 kbps)
+  - High quality: `192000` (192 kbps)
+  - Very high quality: `256000` (256 kbps)
+  - Lossless: Use codec default
+  
+  If omitted, encoder defaults will be used.
+</ParamField>
+
+### Audio Channel Parameters
+
+<ParamField query="audioChannels" type="integer">
+  Specify a specific number of audio channels to encode to:
+  - `1` - Mono
+  - `2` - Stereo
+  - `6` - 5.1 Surround
+  - `8` - 7.1 Surround
+</ParamField>
+
+<ParamField query="maxAudioChannels" type="integer">
+  Specify a maximum number of audio channels. Audio will be downmixed if it exceeds this value.
+</ParamField>
+
+<ParamField query="transcodingMaxAudioChannels" type="integer">
+  The maximum number of audio channels to transcode (different from maxAudioChannels as it affects transcode decision)
+</ParamField>
+
+<ParamField query="audioSampleRate" type="integer">
+  Specify a specific audio sample rate in Hz:
+  - `44100` - CD quality
+  - `48000` - Standard professional audio
+  - `96000` - High resolution audio
+  
+  Common sample rates: 8000, 11025, 16000, 22050, 44100, 48000, 88200, 96000
+</ParamField>
+
+<ParamField query="maxAudioBitDepth" type="integer">
+  The maximum audio bit depth (16, 24, 32). Higher values provide better dynamic range but require more bandwidth.
+</ParamField>
+
+<ParamField query="enableAudioVbrEncoding" type="boolean" default="true">
+  Whether to enable Audio VBR (Variable Bit Rate) Encoding. VBR provides better quality at the same average bitrate.
+</ParamField>
+
+### Container Parameters
+
+<ParamField query="container" type="string">
+  The output container format:
+  - **Video:** mp4, mkv, webm, ts, avi, mov
+  - **Audio:** mp3, aac, flac, opus, ogg, m4a
+  
+  The container must be compatible with the selected codecs.
+</ParamField>
+
+<ParamField query="segmentContainer" type="string">
+  The segment container for HLS streaming:
+  - `ts` - MPEG-TS (more compatible)
+  - `fmp4` - Fragmented MP4 (better compression)
+</ParamField>
+
+### Processing Parameters
+
+<ParamField query="deInterlace" type="boolean" default="false">
+  Whether to deinterlace the video. Required for interlaced content (1080i, 480i) to display properly on progressive displays.
+</ParamField>
+
+<ParamField query="requireNonAnamorphic" type="boolean" default="false">
+  Whether to require a non-anamorphic stream. Anamorphic video uses non-square pixels that require display-side scaling.
+</ParamField>
+
+<ParamField query="cpuCoreLimit" type="integer">
+  The limit of how many CPU cores to use during transcoding. Useful for limiting server load.
+</ParamField>
+
+### Stream Copy Parameters
+
+<ParamField query="enableAutoStreamCopy" type="boolean" default="true">
+  Whether to allow automatic stream copy if requested values match the original source. Stream copy avoids transcoding when possible, reducing server load and improving quality.
+</ParamField>
+
+<ParamField query="allowVideoStreamCopy" type="boolean" default="true">
+  Whether to allow copying of the video stream without transcoding.
+</ParamField>
+
+<ParamField query="allowAudioStreamCopy" type="boolean" default="true">
+  Whether to allow copying of the audio stream without transcoding.
+</ParamField>
+
+### Timestamp Parameters
+
+<ParamField query="copyTimestamps" type="boolean" default="false">
+  Whether to copy timestamps when transcoding with an offset. Important for maintaining proper timing when starting from a non-zero position.
+</ParamField>
+
+<ParamField query="startTimeTicks" type="integer">
+  Specify a starting offset in ticks. 1 tick = 10,000 microseconds = 0.01 milliseconds.
+  
+  Example: To start at 5 minutes: `5 * 60 * 1000 * 10000 = 3000000000` ticks
+</ParamField>
+
+### Subtitle Parameters
+
+<ParamField query="subtitleStreamIndex" type="integer">
+  The index of the subtitle stream to use. If omitted, no subtitles will be included.
+</ParamField>
+
+<ParamField query="subtitleMethod" type="string" default="Encode">
+  Specify the subtitle delivery method:
+  - `Encode` - Burn subtitles into video (always visible, no client support needed)
+  - `Embed` - Include as a separate stream (client must support format)
+  - `External` - Serve as separate file (maximum compatibility)
+  - `Hls` - Include in HLS playlist
+</ParamField>
+
+<ParamField query="subtitleCodec" type="string">
+  Specify a subtitle codec to encode to:
+  - `srt` - SubRip
+  - `ass` - Advanced SubStation Alpha
+  - `vtt` - WebVTT
+  - `subrip` - SubRip format
+</ParamField>
+
+### Advanced Parameters
+
+<ParamField query="transcodeReasons" type="string">
+  Comma-separated list of reasons for transcoding. This is typically set automatically by the server. Possible values include:
+  - `ContainerNotSupported`
+  - `VideoCodecNotSupported`
+  - `AudioCodecNotSupported`
+  - `SubtitleCodecNotSupported`
+  - `AudioIsExternal`
+  - `SecondaryAudioNotSupported`
+  - `VideoProfileNotSupported`
+  - `VideoLevelNotSupported`
+  - `VideoResolutionNotSupported`
+  - `VideoBitDepthNotSupported`
+  - `VideoFramerateNotSupported`
+  - `RefFramesNotSupported`
+  - `AnamorphicVideoNotSupported`
+  - `InterlacedVideoNotSupported`
+  - `AudioChannelsNotSupported`
+  - `AudioProfileNotSupported`
+  - `AudioSampleRateNotSupported`
+  - `AudioBitDepthNotSupported`
+  - `ContainerBitrateExceedsLimit`
+  - `VideoBitrateNotSupported`
+  - `AudioBitrateNotSupported`
+  - `UnknownVideoStreamInfo`
+  - `UnknownAudioStreamInfo`
+  - `DirectPlayError`
+  - `VideoRangeTypeNotSupported`
+</ParamField>
+
+<ParamField query="audioStreamIndex" type="integer">
+  The index of the audio stream to use. If omitted, the first audio stream will be used.
+</ParamField>
+
+<ParamField query="videoStreamIndex" type="integer">
+  The index of the video stream to use. If omitted, the first video stream will be used.
+</ParamField>
+
+<ParamField query="context" type="string">
+  The encoding context:
+  - `Streaming` - For real-time streaming
+  - `Static` - For static file delivery
+</ParamField>
+
+<ParamField query="streamOptions" type="object">
+  Dictionary of additional streaming options as key-value pairs.
+</ParamField>
+
+<ParamField query="enableMpegtsM2TsMode" type="boolean" default="false">
+  Whether to enable the MPEG-TS M2TS mode (used for certain Blu-ray formats).
+</ParamField>
+
+## Example: High-Quality 1080p Transcode
+
+```bash
+curl -X GET "https://your-jellyfin-server/Videos/12345678-1234-1234-1234-123456789abc/stream.mp4?videoCodec=h264&videoBitRate=5000000&width=1920&height=1080&audioCodec=aac&audioBitRate=192000&audioChannels=2&profile=high&level=4.1" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -o output.mp4
+```
+
+## Example: Low-Bandwidth Mobile Transcode
+
+```bash
+curl -X GET "https://your-jellyfin-server/Videos/12345678-1234-1234-1234-123456789abc/stream.mp4?videoCodec=h264&videoBitRate=1000000&maxWidth=640&maxHeight=480&audioCodec=aac&audioBitRate=64000&audioChannels=2" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -o output.mp4
+```
+
+## Transcoding Best Practices
+
+### Server Performance
+
+1. **Hardware Acceleration**: Use hardware acceleration (Intel Quick Sync, NVIDIA NVENC, AMD VCE) when available to reduce CPU load
+2. **CPU Limits**: Set `cpuCoreLimit` to prevent transcoding from consuming all server resources
+3. **Stream Copy**: Enable stream copy parameters to avoid unnecessary transcoding
+
+### Quality Optimization
+
+1. **Bitrate Matching**: Match bitrates to content type (animation can use lower bitrates than live action)
+2. **Resolution Scaling**: Only scale down, never up (use `maxWidth`/`maxHeight` instead of fixed dimensions)
+3. **Frame Rate**: Don't increase frame rate; only maintain or reduce it
+4. **Audio**: Use AAC for best compatibility; Opus for best quality/size ratio
+
+### Compatibility
+
+1. **Codec Selection**:
+   - Most Compatible: H.264 Main Profile + AAC
+   - Modern Devices: H.265 Main + AAC
+   - Web Browsers: VP9 + Opus (WebM) or H.264 + AAC (MP4)
+
+2. **Container Selection**:
+   - Most Compatible: MP4
+   - Streaming: HLS (TS or fMP4 segments)
+   - High Quality: MKV
+
+### Bandwidth Considerations
+
+Recommended bitrates by resolution:
+
+| Resolution | Video Bitrate | Audio Bitrate | Total Bandwidth |
+|------------|--------------|---------------|------------------|
+| 480p       | 1.5 Mbps     | 128 kbps      | ~2 Mbps          |
+| 720p       | 3 Mbps       | 192 kbps      | ~4 Mbps          |
+| 1080p      | 5 Mbps       | 192 kbps      | ~6 Mbps          |
+| 1080p HQ   | 8 Mbps       | 256 kbps      | ~9 Mbps          |
+| 4K         | 15-25 Mbps   | 256 kbps      | ~20-30 Mbps      |

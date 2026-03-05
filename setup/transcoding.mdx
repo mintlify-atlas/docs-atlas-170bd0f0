@@ -1,0 +1,591 @@
+---
+title: Transcoding Configuration
+description: Configure media transcoding, codecs, quality settings, and encoding options
+---
+
+Transcoding allows Jellyfin to convert media on-the-fly to formats compatible with client devices. Proper configuration ensures optimal quality, performance, and compatibility.
+
+## Encoding Configuration File
+
+Transcoding settings are stored in `encoding.xml`:
+
+```bash
+/var/lib/jellyfin/config/encoding.xml
+```
+
+## FFmpeg Configuration
+
+### FFmpeg Path
+
+Jellyfin requires FFmpeg for transcoding. Configure the path:
+
+```xml
+<EncoderAppPath>/usr/bin/ffmpeg</EncoderAppPath>
+<EncoderAppPathDisplay>/usr/bin/ffmpeg</EncoderAppPathDisplay>
+```
+
+- `EncoderAppPath`: Path set by user via UI
+- `EncoderAppPathDisplay`: Currently used path displayed on transcode page
+
+<Info>Jellyfin automatically detects FFmpeg if installed in standard locations.</Info>
+
+### FFmpeg Probe Settings
+
+Configure via environment variables:
+
+```bash
+JELLYFIN_FFmpeg_probesize=1G
+JELLYFIN_FFmpeg_analyzeduration=200M
+```
+
+These settings control how FFmpeg analyzes media files:
+- `probesize`: Amount of data to analyze (default: 1G)
+- `analyzeduration`: Duration to analyze (default: 200M)
+
+<Tip>Increase these values for files with complex or delayed streams.</Tip>
+
+## Video Encoding
+
+### H.264 Encoding
+
+<Tabs>
+  <Tab title="CRF (Quality)">
+    Constant Rate Factor controls encoding quality:
+    
+    ```xml
+    <H264Crf>23</H264Crf>
+    ```
+    
+    - Lower values = higher quality, larger files
+    - Higher values = lower quality, smaller files
+    - Range: 0-51 (default: 23)
+    - Recommended: 18-28
+  </Tab>
+
+  <Tab title="Software Encoder">
+    Default software encoder: `libx264`
+    
+    ```xml
+    <EnableHardwareEncoding>false</EnableHardwareEncoding>
+    ```
+  </Tab>
+
+  <Tab title="Hardware Encoders">
+    Available hardware H.264 encoders:
+    - `h264_nvenc` (NVIDIA)
+    - `h264_qsv` (Intel Quick Sync)
+    - `h264_amf` (AMD)
+    - `h264_vaapi` (VA-API)
+    - `h264_videotoolbox` (Apple)
+    - `h264_v4l2m2m` (Video4Linux)
+    - `h264_rkmpp` (Rockchip)
+  </Tab>
+</Tabs>
+
+### H.265/HEVC Encoding
+
+```xml
+<H265Crf>28</H265Crf>
+<AllowHevcEncoding>false</AllowHevcEncoding>
+```
+
+<Steps>
+  <Step title="Enable HEVC">
+    HEVC provides better compression but requires more processing:
+    
+    ```xml
+    <AllowHevcEncoding>true</AllowHevcEncoding>
+    ```
+  </Step>
+
+  <Step title="CRF Configuration">
+    HEVC typically uses higher CRF values than H.264:
+    
+    ```xml
+    <H265Crf>28</H265Crf>
+    ```
+    
+    - Default: 28
+    - Recommended: 24-32
+    - CRF 28 (HEVC) ≈ CRF 23 (H.264) in quality
+  </Step>
+
+  <Step title="Hardware Support">
+    Ensure client devices support HEVC decoding before enabling.
+  </Step>
+</Steps>
+
+### AV1 Encoding
+
+```xml
+<AllowAv1Encoding>false</AllowAv1Encoding>
+```
+
+AV1 provides excellent compression but is computationally intensive:
+
+```xml
+<AllowAv1Encoding>true</AllowAv1Encoding>
+```
+
+<Warning>AV1 encoding requires significant CPU/GPU resources and is slower than H.264/HEVC.</Warning>
+
+### Encoder Presets
+
+```xml
+<EncoderPreset>veryfast</EncoderPreset>
+```
+
+Available presets (from fastest to slowest):
+- `ultrafast` - Fastest, lowest quality
+- `superfast`
+- `veryfast` - Good balance for real-time transcoding
+- `faster`
+- `fast`
+- `medium` - Default, balanced quality/speed
+- `slow`
+- `slower`
+- `veryslow` - Best quality, very slow
+
+<Tip>For real-time transcoding, use `veryfast` or `faster`. For offline encoding, use `slow` or `slower`.</Tip>
+
+## Audio Encoding
+
+### Audio VBR
+
+```xml
+<EnableAudioVbr>false</EnableAudioVbr>
+```
+
+Variable Bit Rate for audio encoding provides better quality at lower bitrates.
+
+### Downmixing Configuration
+
+```xml
+<DownMixAudioBoost>2</DownMixAudioBoost>
+<DownMixStereoAlgorithm>None</DownMixStereoAlgorithm>
+```
+
+<Tabs>
+  <Tab title="Audio Boost">
+    Apply volume boost when downmixing surround to stereo:
+    
+    ```xml
+    <DownMixAudioBoost>2</DownMixAudioBoost>
+    ```
+    
+    - Range: 0-10
+    - Default: 2
+  </Tab>
+
+  <Tab title="Downmix Algorithm">
+    Choose stereo downmix algorithm:
+    
+    ```xml
+    <DownMixStereoAlgorithm>None</DownMixStereoAlgorithm>
+    ```
+    
+    Options:
+    - `None` - FFmpeg default
+    - `Dave750` - Dave750 algorithm
+    - `NightMode` - Night mode compression
+  </Tab>
+</Tabs>
+
+### Audio Codec Limitations
+
+Jellyfin enforces channel limits for certain encoders:
+
+| Codec | Max Channels |
+|-------|-------------|
+| libmp3lame | 2 (stereo) |
+| libfdk_aac | 6 (5.1) |
+| ac3 | 6 (5.1) |
+| eac3 | 6 (5.1) |
+| AAC | 8 |
+| FLAC | 8 |
+| ALAC | 8 |
+| Opus | 8 |
+| Vorbis | 8 |
+
+## Transcoding Behavior
+
+### Threading
+
+```xml
+<EncodingThreadCount>-1</EncodingThreadCount>
+```
+
+- `-1`: Auto (uses all available CPU cores)
+- `0`: FFmpeg default
+- `1-N`: Specific thread count
+
+<Info>Setting to -1 allows FFmpeg to utilize all CPU resources for faster transcoding.</Info>
+
+### Throttling
+
+```xml
+<EnableThrottling>false</EnableThrottling>
+<ThrottleDelaySeconds>180</ThrottleDelaySeconds>
+```
+
+<Warning>Throttling is deprecated and disabled by default. Modern clients handle buffering automatically.</Warning>
+
+### Segment Management
+
+```xml
+<EnableSegmentDeletion>false</EnableSegmentDeletion>
+<SegmentKeepSeconds>720</SegmentKeepSeconds>
+```
+
+For HLS streaming, configure segment retention:
+- `EnableSegmentDeletion`: Auto-delete old segments
+- `SegmentKeepSeconds`: How long to keep segments (default: 720)
+
+### Muxing Queue
+
+```xml
+<MaxMuxingQueueSize>2048</MaxMuxingQueueSize>
+```
+
+Buffer size for muxing operations (default: 2048).
+
+## Temporary Transcoding Path
+
+```xml
+<TranscodingTempPath>/var/lib/jellyfin/transcodes</TranscodingTempPath>
+```
+
+Specify where temporary transcode files are stored:
+
+<Steps>
+  <Step title="Default Location">
+    If not specified, uses system temp directory.
+  </Step>
+
+  <Step title="Fast Storage">
+    Use SSD or RAM disk for better performance:
+    
+    ```xml
+    <TranscodingTempPath>/mnt/ramdisk/jellyfin-transcodes</TranscodingTempPath>
+    ```
+  </Step>
+
+  <Step title="Disk Space">
+    Ensure adequate space (4K transcoding can use 10-20 GB temporarily).
+  </Step>
+</Steps>
+
+<Tip>Using a RAM disk for transcoding significantly improves performance and reduces SSD wear.</Tip>
+
+## Subtitle Configuration
+
+### Subtitle Extraction
+
+```xml
+<EnableSubtitleExtraction>true</EnableSubtitleExtraction>
+<SubtitleExtractionTimeoutMinutes>30</SubtitleExtractionTimeoutMinutes>
+```
+
+Configure how subtitles are extracted from media:
+- `EnableSubtitleExtraction`: Allow extracting embedded subtitles
+- `SubtitleExtractionTimeoutMinutes`: Maximum time to spend extracting
+
+### Fallback Fonts
+
+```xml
+<EnableFallbackFont>false</EnableFallbackFont>
+<FallbackFontPath>/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf</FallbackFontPath>
+```
+
+Specify fallback font for subtitle rendering.
+
+## Hardware Decoding
+
+### Codec Selection
+
+```xml
+<HardwareDecodingCodecs>
+  <string>h264</string>
+  <string>vc1</string>
+</HardwareDecodingCodecs>
+```
+
+Specify which codecs use hardware decoding:
+- `h264` - H.264/AVC
+- `hevc` - H.265/HEVC
+- `vc1` - VC-1
+- `mpeg2video` - MPEG-2
+- `vp8` - VP8
+- `vp9` - VP9
+- `av1` - AV1
+
+### Advanced Decoding Options
+
+```xml
+<EnableDecodingColorDepth10Hevc>true</EnableDecodingColorDepth10Hevc>
+<EnableDecodingColorDepth10Vp9>true</EnableDecodingColorDepth10Vp9>
+<EnableDecodingColorDepth10HevcRext>false</EnableDecodingColorDepth10HevcRext>
+<EnableDecodingColorDepth12HevcRext>false</EnableDecodingColorDepth12HevcRext>
+```
+
+<Tabs>
+  <Tab title="10-bit HEVC">
+    Enable hardware decoding for 10-bit HEVC:
+    
+    ```xml
+    <EnableDecodingColorDepth10Hevc>true</EnableDecodingColorDepth10Hevc>
+    ```
+  </Tab>
+
+  <Tab title="10-bit VP9">
+    Enable hardware decoding for 10-bit VP9:
+    
+    ```xml
+    <EnableDecodingColorDepth10Vp9>true</EnableDecodingColorDepth10Vp9>
+    ```
+  </Tab>
+
+  <Tab title="HEVC RExt">
+    Advanced HEVC profiles (Range Extensions):
+    
+    ```xml
+    <EnableDecodingColorDepth10HevcRext>false</EnableDecodingColorDepth10HevcRext>
+    <EnableDecodingColorDepth12HevcRext>false</EnableDecodingColorDepth12HevcRext>
+    ```
+  </Tab>
+</Tabs>
+
+### NVIDIA Enhanced Decoder
+
+```xml
+<EnableEnhancedNvdecDecoder>true</EnableEnhancedNvdecDecoder>
+```
+
+Enables enhanced NVDEC for Dolby Vision to SDR tone mapping.
+
+### System Native Decoder
+
+```xml
+<PreferSystemNativeHwDecoder>true</PreferSystemNativeHwDecoder>
+```
+
+Prefer OS-native hardware decoder (e.g., VideoToolbox on macOS).
+
+## Deinterlacing
+
+```xml
+<DeinterlaceDoubleRate>false</DeinterlaceDoubleRate>
+<DeinterlaceMethod>yadif</DeinterlaceMethod>
+```
+
+<Tabs>
+  <Tab title="Method">
+    Available deinterlacing algorithms:
+    
+    - `yadif` - Yet Another Deinterlacing Filter (recommended)
+    - `bwdif` - Bob Weaver Deinterlacing Filter
+    
+    ```xml
+    <DeinterlaceMethod>yadif</DeinterlaceMethod>
+    ```
+  </Tab>
+
+  <Tab title="Double Rate">
+    Output at double framerate:
+    
+    ```xml
+    <DeinterlaceDoubleRate>true</DeinterlaceDoubleRate>
+    ```
+    
+    - `false`: 60i → 30p
+    - `true`: 60i → 60p
+  </Tab>
+</Tabs>
+
+## Tone Mapping
+
+### Basic Tone Mapping
+
+```xml
+<EnableTonemapping>false</EnableTonemapping>
+<TonemappingAlgorithm>bt2390</TonemappingAlgorithm>
+<TonemappingMode>auto</TonemappingMode>
+<TonemappingRange>auto</TonemappingRange>
+```
+
+<Steps>
+  <Step title="Enable Tone Mapping">
+    Convert HDR content to SDR:
+    
+    ```xml
+    <EnableTonemapping>true</EnableTonemapping>
+    ```
+  </Step>
+
+  <Step title="Algorithm Selection">
+    Choose tone mapping algorithm:
+    
+    ```xml
+    <TonemappingAlgorithm>bt2390</TonemappingAlgorithm>
+    ```
+    
+    Options:
+    - `bt2390` - ITU-R BT.2390 (recommended)
+    - `hable` - Hable/Uncharted
+    - `mobius` - Mobius
+    - `reinhard` - Reinhard
+  </Step>
+
+  <Step title="Mode Configuration">
+    ```xml
+    <TonemappingMode>auto</TonemappingMode>
+    <TonemappingRange>auto</TonemappingRange>
+    ```
+    
+    Both default to `auto` for automatic detection.
+  </Step>
+</Steps>
+
+### Tone Mapping Parameters
+
+```xml
+<TonemappingDesat>0</TonemappingDesat>
+<TonemappingPeak>100</TonemappingPeak>
+<TonemappingParam>0</TonemappingParam>
+```
+
+- `TonemappingDesat`: Desaturation strength (default: 0)
+- `TonemappingPeak`: Peak luminance in nits (default: 100)
+- `TonemappingParam`: Algorithm-specific parameter (default: 0)
+
+### Hardware-Specific Tone Mapping
+
+<Tabs>
+  <Tab title="Intel VPP">
+    ```xml
+    <EnableVppTonemapping>false</EnableVppTonemapping>
+    <VppTonemappingBrightness>16</VppTonemappingBrightness>
+    <VppTonemappingContrast>1</VppTonemappingContrast>
+    ```
+    
+    Intel Video Post Processing tone mapping.
+  </Tab>
+
+  <Tab title="Apple VideoToolbox">
+    ```xml
+    <EnableVideoToolboxTonemapping>false</EnableVideoToolboxTonemapping>
+    ```
+    
+    macOS/iOS hardware tone mapping.
+  </Tab>
+</Tabs>
+
+## Intel Quick Sync Configuration
+
+```xml
+<QsvDevice></QsvDevice>
+<EnableIntelLowPowerH264HwEncoder>false</EnableIntelLowPowerH264HwEncoder>
+<EnableIntelLowPowerHevcHwEncoder>false</EnableIntelLowPowerHevcHwEncoder>
+```
+
+<Steps>
+  <Step title="QSV Device">
+    Specify QSV device (usually auto-detected):
+    
+    ```xml
+    <QsvDevice></QsvDevice>
+    ```
+  </Step>
+
+  <Step title="Low Power Mode">
+    Enable low power encoding (Xe+ architecture):
+    
+    ```xml
+    <EnableIntelLowPowerH264HwEncoder>true</EnableIntelLowPowerH264HwEncoder>
+    <EnableIntelLowPowerHevcHwEncoder>true</EnableIntelLowPowerHevcHwEncoder>
+    ```
+  </Step>
+</Steps>
+
+## HLS Audio Seeking
+
+```xml
+<HlsAudioSeekStrategy>DisableAccurateSeek</HlsAudioSeekStrategy>
+```
+
+Configure HLS audio seeking behavior:
+- `DisableAccurateSeek` - Faster seeking, less accurate (default)
+- `EnableAccurateSeek` - Slower seeking, more accurate
+
+## Keyframe Extraction
+
+```xml
+<AllowOnDemandMetadataBasedKeyframeExtractionForExtensions>
+  <string>mkv</string>
+</AllowOnDemandMetadataBasedKeyframeExtractionForExtensions>
+```
+
+Enable on-demand keyframe extraction for trickplay thumbnails in specific formats.
+
+## Performance Optimization
+
+<CardGroup cols={2}>
+  <Card title="Use Hardware Encoding" icon="microchip">
+    Enable hardware acceleration for 10-20x faster transcoding with lower CPU usage.
+  </Card>
+  
+  <Card title="RAM Disk for Transcodes" icon="memory">
+    Store temporary transcodes in RAM disk for faster I/O and reduced disk wear.
+  </Card>
+  
+  <Card title="Optimize Thread Count" icon="server">
+    Set `EncodingThreadCount` to -1 to use all CPU cores efficiently.
+  </Card>
+  
+  <Card title="Adjust CRF Values" icon="sliders">
+    Balance quality and performance by tuning CRF settings for your use case.
+  </Card>
+</CardGroup>
+
+## Troubleshooting
+
+<Steps>
+  <Step title="Transcoding Fails">
+    Check:
+    - FFmpeg is installed and path is correct
+    - Sufficient disk space in transcode directory
+    - Encoding settings are compatible with source media
+  </Step>
+
+  <Step title="Poor Quality Output">
+    Adjust:
+    - Lower CRF values for better quality
+    - Use slower encoder preset
+    - Increase bitrate limits
+  </Step>
+
+  <Step title="Slow Transcoding">
+    Optimize:
+    - Enable hardware encoding
+    - Use faster encoder preset
+    - Reduce thread count if CPU is overloaded
+  </Step>
+
+  <Step title="Audio Out of Sync">
+    Verify:
+    - Source file is not corrupted
+    - Audio downmix settings are appropriate
+    - HLS audio seek strategy is suitable
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Hardware Acceleration" icon="microchip" href="./hardware-acceleration">
+    Set up GPU acceleration for optimal performance
+  </Card>
+  <Card title="Configuration" icon="gear" href="./configuration">
+    Review general server configuration options
+  </Card>
+</CardGroup>

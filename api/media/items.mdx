@@ -1,0 +1,366 @@
+---
+title: "Items API"
+description: "Query, filter, and search media items in the Jellyfin library"
+---
+
+The Items API provides comprehensive access to media items in your Jellyfin library, including powerful filtering, searching, and sorting capabilities.
+
+## Get Items
+
+Retrieve items based on a flexible query with extensive filtering options.
+
+<CodeGroup>
+```bash cURL
+curl -X GET "https://your-server/Items" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -H "Content-Type: application/json"
+```
+
+```javascript JavaScript
+const response = await fetch('https://your-server/Items', {
+  headers: {
+    'Authorization': 'MediaBrowser Token=YOUR_API_KEY'
+  }
+});
+const data = await response.json();
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    'https://your-server/Items',
+    headers={'Authorization': 'MediaBrowser Token=YOUR_API_KEY'}
+)
+items = response.json()
+```
+</CodeGroup>
+
+### Endpoint
+
+<ParamField path="method" type="string" required>
+  GET
+</ParamField>
+
+<ParamField path="endpoint" type="string" required>
+  `/Items`
+</ParamField>
+
+### Query Parameters
+
+<ParamField query="userId" type="string (GUID)">
+  The user ID. Required when not using an API key.
+</ParamField>
+
+<ParamField query="startIndex" type="integer">
+  The record index to start at. All items with a lower index will be dropped from the results.
+</ParamField>
+
+<ParamField query="limit" type="integer">
+  The maximum number of records to return.
+</ParamField>
+
+<ParamField query="recursive" type="boolean">
+  When searching within folders, determines whether the search will be recursive.
+</ParamField>
+
+<ParamField query="searchTerm" type="string">
+  Filter based on a search term.
+</ParamField>
+
+<ParamField query="sortBy" type="string[]">
+  Comma-delimited sort orders. Options: Album, AlbumArtist, Artist, Budget, CommunityRating, CriticRating, DateCreated, DatePlayed, PlayCount, PremiereDate, ProductionYear, SortName, Random, Revenue, Runtime.
+</ParamField>
+
+<ParamField query="sortOrder" type="string[]">
+  Sort order: Ascending, Descending. Comma-delimited.
+</ParamField>
+
+<ParamField query="parentId" type="string (GUID)">
+  Specify this to localize the search to a specific item or folder. Omit to use the root.
+</ParamField>
+
+<ParamField query="fields" type="string[]">
+  Comma-delimited additional fields: Budget, Chapters, DateCreated, Genres, HomePageUrl, IndexOptions, MediaStreams, Overview, ParentId, Path, People, ProviderIds, PrimaryImageAspectRatio, Revenue, SortName, Studios, Taglines.
+</ParamField>
+
+<ParamField query="includeItemTypes" type="string[]">
+  Filter by item type. Comma-delimited. Examples: Movie, Series, Episode, MusicAlbum, Audio, Book.
+</ParamField>
+
+<ParamField query="excludeItemTypes" type="string[]">
+  Exclude specific item types. Comma-delimited.
+</ParamField>
+
+<ParamField query="filters" type="string[]">
+  Additional filters. Comma-delimited. Options: IsFolder, IsNotFolder, IsUnplayed, IsPlayed, IsFavorite, IsResumable, Likes, Dislikes.
+</ParamField>
+
+<ParamField query="isFavorite" type="boolean">
+  Filter by items marked as favorite.
+</ParamField>
+
+<ParamField query="mediaTypes" type="string[]">
+  Filter by MediaType. Comma-delimited. Options: Video, Audio, Photo, Book.
+</ParamField>
+
+<ParamField query="genres" type="string[]">
+  Filter by genre. Pipe-delimited.
+</ParamField>
+
+<ParamField query="years" type="integer[]">
+  Filter by production year. Comma-delimited.
+</ParamField>
+
+<ParamField query="tags" type="string[]">
+  Filter by tag. Pipe-delimited.
+</ParamField>
+
+<ParamField query="officialRatings" type="string[]">
+  Filter by official rating (PG, PG-13, TV-MA, etc). Pipe-delimited.
+</ParamField>
+
+<ParamField query="minCommunityRating" type="number">
+  Filter by minimum community rating.
+</ParamField>
+
+<ParamField query="minCriticRating" type="number">
+  Filter by minimum critic rating.
+</ParamField>
+
+<ParamField query="minPremiereDate" type="string (ISO 8601)">
+  The minimum premiere date.
+</ParamField>
+
+<ParamField query="maxPremiereDate" type="string (ISO 8601)">
+  The maximum premiere date.
+</ParamField>
+
+<ParamField query="hasThemeSong" type="boolean">
+  Filter by items with theme songs.
+</ParamField>
+
+<ParamField query="hasThemeVideo" type="boolean">
+  Filter by items with theme videos.
+</ParamField>
+
+<ParamField query="hasSubtitles" type="boolean">
+  Filter by items with subtitles.
+</ParamField>
+
+<ParamField query="hasTrailer" type="boolean">
+  Filter by items with trailers.
+</ParamField>
+
+<ParamField query="isHd" type="boolean">
+  Filter by items that are HD.
+</ParamField>
+
+<ParamField query="is4K" type="boolean">
+  Filter by items that are 4K.
+</ParamField>
+
+<ParamField query="is3D" type="boolean">
+  Filter by items that are 3D.
+</ParamField>
+
+<ParamField query="isPlayed" type="boolean">
+  Filter by items that have been played.
+</ParamField>
+
+<ParamField query="enableUserData" type="boolean" default="true">
+  Include user data in the response.
+</ParamField>
+
+<ParamField query="enableImages" type="boolean" default="true">
+  Include image information in output.
+</ParamField>
+
+<ParamField query="enableTotalRecordCount" type="boolean" default="true">
+  Enable the total record count.
+</ParamField>
+
+### Response
+
+<ResponseField name="Items" type="array">
+  Array of BaseItemDto objects representing the media items.
+  
+  <Expandable title="BaseItemDto properties">
+    <ResponseField name="Id" type="string (GUID)">
+      Unique identifier for the item.
+    </ResponseField>
+    
+    <ResponseField name="Name" type="string">
+      The name of the item.
+    </ResponseField>
+    
+    <ResponseField name="Type" type="string">
+      The type of item (Movie, Series, Episode, etc).
+    </ResponseField>
+    
+    <ResponseField name="Path" type="string">
+      The file system path to the item.
+    </ResponseField>
+    
+    <ResponseField name="Overview" type="string">
+      The item description/overview.
+    </ResponseField>
+    
+    <ResponseField name="Genres" type="string[]">
+      Array of genre names.
+    </ResponseField>
+    
+    <ResponseField name="ProductionYear" type="integer">
+      Year the item was produced.
+    </ResponseField>
+    
+    <ResponseField name="CommunityRating" type="number">
+      Community rating score.
+    </ResponseField>
+    
+    <ResponseField name="RunTimeTicks" type="integer">
+      Runtime in ticks (10,000 ticks = 1 millisecond).
+    </ResponseField>
+    
+    <ResponseField name="UserData" type="object">
+      User-specific data for this item.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="TotalRecordCount" type="integer">
+  Total number of items matching the query.
+</ResponseField>
+
+<ResponseField name="StartIndex" type="integer">
+  The starting index of the results.
+</ResponseField>
+
+### Response Codes
+
+- `200` - Success: Items returned
+- `400` - Bad Request: userId is required when not using API key
+- `401` - Unauthorized: User does not have permission to access the library
+- `404` - Not Found: Library or parent item not found
+
+---
+
+## Get Resume Items
+
+Get items that can be resumed for a user.
+
+```bash cURL
+curl -X GET "https://your-server/UserItems/Resume?userId=USER_ID&limit=10" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+### Endpoint
+
+`GET /UserItems/Resume`
+
+### Query Parameters
+
+<ParamField query="userId" type="string (GUID)">
+  The user ID.
+</ParamField>
+
+<ParamField query="startIndex" type="integer">
+  The record index to start at.
+</ParamField>
+
+<ParamField query="limit" type="integer">
+  The maximum number of records to return.
+</ParamField>
+
+<ParamField query="parentId" type="string (GUID)">
+  Specify this to localize the search to a specific item or folder.
+</ParamField>
+
+<ParamField query="excludeActiveSessions" type="boolean" default="false">
+  Whether to exclude currently active sessions.
+</ParamField>
+
+### Response Codes
+
+- `200` - Success: Resume items returned
+- `404` - Not Found: User not found
+
+---
+
+## Get/Update Item User Data
+
+Manage user-specific data for an item (play count, favorite status, etc).
+
+### Get Item User Data
+
+```bash Get
+curl -X GET "https://your-server/UserItems/{itemId}/UserData?userId=USER_ID" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+`GET /UserItems/{itemId}/UserData`
+
+### Update Item User Data
+
+```bash Update
+curl -X POST "https://your-server/UserItems/{itemId}/UserData" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "IsFavorite": true,
+    "Played": true,
+    "PlaybackPositionTicks": 0
+  }'
+```
+
+`POST /UserItems/{itemId}/UserData`
+
+### Request Body (Update)
+
+<ParamField body="IsFavorite" type="boolean">
+  Whether the item is marked as favorite.
+</ParamField>
+
+<ParamField body="Played" type="boolean">
+  Whether the item has been played.
+</ParamField>
+
+<ParamField body="PlaybackPositionTicks" type="integer">
+  Playback position in ticks.
+</ParamField>
+
+<ParamField body="PlayCount" type="integer">
+  Number of times played.
+</ParamField>
+
+<ParamField body="Rating" type="number">
+  User rating (likes/dislikes).
+</ParamField>
+
+### Response
+
+<ResponseField name="PlaybackPositionTicks" type="integer">
+  Current playback position.
+</ResponseField>
+
+<ResponseField name="PlayCount" type="integer">
+  Number of times the item has been played.
+</ResponseField>
+
+<ResponseField name="IsFavorite" type="boolean">
+  Whether marked as favorite.
+</ResponseField>
+
+<ResponseField name="Played" type="boolean">
+  Whether the item has been played.
+</ResponseField>
+
+<ResponseField name="LastPlayedDate" type="string (ISO 8601)">
+  Date the item was last played.
+</ResponseField>
+
+### Response Codes
+
+- `200` - Success: User data returned/updated
+- `403` - Forbidden: User not allowed to view/update this data
+- `404` - Not Found: Item or user not found

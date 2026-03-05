@@ -1,0 +1,720 @@
+---
+title: Plugins
+description: Extend Jellyfin Server with custom plugins for additional functionality
+---
+
+Jellyfin's plugin system allows developers to extend the server's functionality without modifying the core codebase. Plugins can add new metadata providers, authentication methods, notification services, and more.
+
+## Plugin Architecture
+
+Plugins in Jellyfin are .NET assemblies that implement specific interfaces and are loaded at server startup.
+
+### Plugin Manager
+
+The `PluginManager` discovers, loads, and manages plugins:
+
+```csharp Emby.Server.Implementations/Plugins/PluginManager.cs
+public sealed class PluginManager : IPluginManager, IDisposable
+{
+    private const string MetafileName = "meta.json";
+    private readonly string _pluginsPath;
+    private readonly Version _appVersion;
+    private readonly List<LocalPlugin> _plugins;
+    private readonly List<AssemblyLoadContext> _assemblyLoadContexts;
+    
+    public IReadOnlyList<LocalPlugin> Plugins => _plugins;
+    
+    public PluginManager(
+        ILogger<PluginManager> logger,
+        IServerApplicationHost appHost,
+        ServerConfiguration config,
+        string pluginsPath,
+        Version appVersion)
+    {
+        _pluginsPath = pluginsPath;
+        _appVersion = appVersion;
+        _plugins = Directory.Exists(_pluginsPath) 
+            ? DiscoverPlugins().ToList() 
+            : new List<LocalPlugin>();
+    }
+}
+```
+
+<Info>
+  Plugins are loaded in isolated `AssemblyLoadContext` instances to prevent version conflicts and enable unloading.
+</Info>
+
+## Plugin Discovery
+
+Plugins are discovered by scanning the plugins directory:
+
+<Steps>
+  <Step title="Directory Scan">
+    The PluginManager scans the configured plugins path (typically `/config/plugins`).
+  </Step>
+  
+  <Step title="Metadata Loading">
+    Each plugin directory should contain a `meta.json` file:
+    
+    ```json
+    {
+      "guid": "a4df60c5-6ab4-412a-8f79-2cab93fb2bc5",
+      "name": "My Custom Plugin",
+      "description": "Adds custom functionality to Jellyfin",
+      "version": "1.0.0",
+      "status": "Active",
+      "autoUpdate": true,
+      "targetAbi": "10.8.0.0"
+    }
+    ```
+  </Step>
+  
+  <Step title="Version Validation">
+    Plugin compatibility is checked against the server version:
+    
+    ```csharp
+    private void UpdatePluginSupersededStatus(LocalPlugin plugin)
+    {
+        if (plugin.Manifest.TargetAbi != null && 
+            !IsCompatible(plugin.Manifest.TargetAbi, _appVersion))
+        {
+            plugin.Manifest.Status = PluginStatus.NotSupported;
+        }
+    }
+    ```
+  </Step>
+  
+  <Step title="Assembly Loading">
+    Compatible plugins are loaded into the application:
+    
+    ```csharp
+    public IEnumerable<Assembly> LoadAssemblies()
+    {
+        foreach (var plugin in _plugins)
+        {
+            if (plugin.IsEnabledAndSupported == false)
+            {
+                _logger.LogInformation(
+                    "Skipping disabled plugin {Version} of {Name}",
+                    plugin.Version, plugin.Name);
+                continue;
+            }
+            
+            var assemblyLoadContext = new PluginLoadContext(plugin.Path);
+            _assemblyLoadContexts.Add(assemblyLoadContext);
+            
+            foreach (var file in plugin.DllFiles)
+            {
+                assemblies.Add(
+                    assemblyLoadContext.LoadFromAssemblyPath(file));
+            }
+        }
+    }
+    ```
+  </Step>
+</Steps>
+
+## Creating a Plugin
+
+### Basic Plugin Structure
+
+All plugins must inherit from `BasePlugin`:
+
+```csharp MediaBrowser.Common/Plugins/BasePlugin.cs
+public abstract class BasePlugin : IPlugin, IPluginAssembly
+{
+    public abstract string Name { get; }
+    public virtual string Description => string.Empty;
+    public virtual Guid Id { get; private set; }
+    public Version Version { get; private set; }
+    public string AssemblyFilePath { get; private set; }
+    public string DataFolderPath { get; private set; }
+    
+    public bool CanUninstall => !Path.GetDirectoryName(AssemblyFilePath)
+        .Equals(Path.GetDirectoryName(
+            Assembly.GetExecutingAssembly().Location), 
+            StringComparison.Ordinal);
+    
+    public virtual PluginInfo GetPluginInfo()
+    {
+        return new PluginInfo(
+            Name,
+            Version,
+            Description,
+            Id,
+            CanUninstall);
+    }
+    
+    public virtual void OnUninstalling() { }
+}
+```
+
+### Plugin Interfaces
+
+```csharp MediaBrowser.Common/Plugins/IPlugin.cs
+public interface IPlugin
+{
+    string Name { get; }
+    string Description { get; }
+    Guid Id { get; }
+    Version Version { get; }
+    string AssemblyFilePath { get; }
+    bool CanUninstall { get; }
+    string DataFolderPath { get; }
+    
+    PluginInfo GetPluginInfo();
+    void OnUninstalling();
+}
+```
+
+### Example Plugin Implementation
+
+<CodeGroup>
+```csharp Simple Plugin
+using MediaBrowser.Common.Plugins;
+using MediaBrowser.Model.Plugins;
+
+namespace MyCustomPlugin
+{
+    public class Plugin : BasePlugin
+    {
+        public override string Name => "My Custom Plugin";
+        
+        public override string Description => 
+            "Provides custom functionality for Jellyfin";
+        
+        public override Guid Id => 
+            Guid.Parse("a4df60c5-6ab4-412a-8f79-2cab93fb2bc5");
+        
+        public Plugin(
+            IApplicationPaths applicationPaths,
+            IXmlSerializer xmlSerializer)
+        {
+            Instance = this;
+        }
+        
+        public static Plugin? Instance { get; private set; }
+    }
+}
+```
+
+```csharp Plugin with Configuration
+using MediaBrowser.Common.Configuration;
+using MediaBrowser.Common.Plugins;
+using MediaBrowser.Model.Serialization;
+
+namespace MyCustomPlugin
+{
+    public class Plugin : BasePlugin<PluginConfiguration>,
+        IHasWebPages
+    {
+        public Plugin(
+            IApplicationPaths applicationPaths,
+            IXmlSerializer xmlSerializer)
+            : base(applicationPaths, xmlSerializer)
+        {
+            Instance = this;
+        }
+        
+        public override string Name => "My Custom Plugin";
+        
+        public override Guid Id => 
+            Guid.Parse("a4df60c5-6ab4-412a-8f79-2cab93fb2bc5");
+        
+        public static Plugin? Instance { get; private set; }
+        
+        public IEnumerable<PluginPageInfo> GetPages()
+        {
+            return new[]
+            {
+                new PluginPageInfo
+                {
+                    Name = "MyCustomPlugin",
+                    EmbeddedResourcePath = GetType().Namespace + ".Configuration.config.html"
+                }
+            };
+        }
+    }
+    
+    public class PluginConfiguration : BasePluginConfiguration
+    {
+        public string ApiKey { get; set; } = string.Empty;
+        public bool EnableFeature { get; set; } = true;
+        public int Timeout { get; set; } = 30;
+    }
+}
+```
+</CodeGroup>
+
+## Service Registration
+
+Plugins can register services with the dependency injection container:
+
+```csharp MediaBrowser.Controller/Plugins/IPluginServiceRegistrator.cs
+public interface IPluginServiceRegistrator
+{
+    void RegisterServices(
+        IServiceCollection serviceCollection, 
+        IServerApplicationHost applicationHost);
+}
+```
+
+### Example Service Registration
+
+```csharp
+using MediaBrowser.Controller.Plugins;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace MyCustomPlugin
+{
+    public class PluginServiceRegistrator : IPluginServiceRegistrator
+    {
+        public void RegisterServices(
+            IServiceCollection serviceCollection,
+            IServerApplicationHost applicationHost)
+        {
+            // Register custom services
+            serviceCollection.AddSingleton<IMyCustomService, MyCustomService>();
+            serviceCollection.AddScoped<IMyRequestHandler, MyRequestHandler>();
+            
+            // Register hosted services (background tasks)
+            serviceCollection.AddHostedService<MyBackgroundService>();
+        }
+    }
+}
+```
+
+<Tip>
+  Service registration happens before the plugin assemblies are fully loaded, so you can inject services into other plugin components.
+</Tip>
+
+## Plugin Types
+
+Jellyfin supports various plugin types for different functionality:
+
+<Tabs>
+  <Tab title="Metadata Providers">
+    Fetch metadata from external sources:
+    
+    ```csharp
+    public class MyMetadataProvider : IRemoteMetadataProvider<Movie, MovieInfo>
+    {
+        public string Name => "My Metadata Provider";
+        
+        public async Task<IEnumerable<RemoteSearchResult>> GetSearchResults(
+            MovieInfo searchInfo, 
+            CancellationToken cancellationToken)
+        {
+            // Search for movies
+            var results = await SearchMoviesAsync(searchInfo.Name);
+            return results;
+        }
+        
+        public async Task<MetadataResult<Movie>> GetMetadata(
+            MovieInfo info, 
+            CancellationToken cancellationToken)
+        {
+            // Fetch full metadata
+            var metadata = await FetchMovieMetadataAsync(info.ProviderIds);
+            return new MetadataResult<Movie>
+            {
+                Item = metadata,
+                HasMetadata = true
+            };
+        }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Authentication Providers">
+    Implement custom authentication:
+    
+    ```csharp
+    public class CustomAuthProvider : IAuthenticationProvider
+    {
+        public string Name => "Custom Authentication";
+        public bool IsEnabled => true;
+        
+        public async Task<ProviderAuthenticationResult> Authenticate(
+            string username, 
+            string password)
+        {
+            // Validate against external system
+            var isValid = await ValidateCredentialsAsync(username, password);
+            
+            if (!isValid)
+            {
+                throw new AuthenticationException(
+                    "Invalid username or password");
+            }
+            
+            return new ProviderAuthenticationResult
+            {
+                Username = username
+            };
+        }
+        
+        public Task ChangePassword(User user, string newPassword)
+        {
+            // Update password in external system
+            return UpdatePasswordAsync(user.Username, newPassword);
+        }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Notification Services">
+    Send notifications to external services:
+    
+    ```csharp
+    public class CustomNotifier : INotificationService
+    {
+        public string Name => "Custom Notifier";
+        
+        public async Task SendNotification(
+            UserNotification request, 
+            CancellationToken cancellationToken)
+        {
+            // Send notification to external service
+            await SendToExternalServiceAsync(
+                request.User.Username,
+                request.Name,
+                request.Description);
+        }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Scheduled Tasks">
+    Run background tasks on a schedule:
+    
+    ```csharp
+    public class MyScheduledTask : IScheduledTask
+    {
+        public string Name => "My Scheduled Task";
+        public string Key => "MyScheduledTask";
+        public string Description => "Performs custom maintenance";
+        public string Category => "Maintenance";
+        
+        public Task ExecuteAsync(
+            IProgress<double> progress, 
+            CancellationToken cancellationToken)
+        {
+            // Perform task
+            progress.Report(0);
+            
+            // Do work...
+            
+            progress.Report(100);
+            return Task.CompletedTask;
+        }
+        
+        public IEnumerable<TaskTriggerInfo> GetDefaultTriggers()
+        {
+            return new[]
+            {
+                new TaskTriggerInfo
+                {
+                    Type = TaskTriggerInfo.TriggerDaily,
+                    TimeOfDayTicks = TimeSpan.FromHours(3).Ticks
+                }
+            };
+        }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Plugin Configuration
+
+Plugins can provide configuration UI and persist settings:
+
+### Configuration Class
+
+```csharp
+using MediaBrowser.Model.Plugins;
+
+public class PluginConfiguration : BasePluginConfiguration
+{
+    public string ApiUrl { get; set; } = "https://api.example.com";
+    public string ApiKey { get; set; } = string.Empty;
+    public int CacheDuration { get; set; } = 3600;
+    public bool EnableDebugLogging { get; set; } = false;
+    public List<string> AllowedUsers { get; set; } = new();
+}
+```
+
+### Configuration Storage
+
+```csharp
+public class Plugin : BasePlugin<PluginConfiguration>
+{
+    public Plugin(
+        IApplicationPaths applicationPaths,
+        IXmlSerializer xmlSerializer)
+        : base(applicationPaths, xmlSerializer)
+    {
+        Instance = this;
+    }
+    
+    // Access configuration
+    public string GetApiKey() => Configuration.ApiKey;
+    
+    // Update configuration
+    public void UpdateConfiguration(PluginConfiguration config)
+    {
+        Configuration = config;
+        SaveConfiguration();
+    }
+}
+```
+
+<Info>
+  Plugin configurations are automatically serialized to XML and stored in the plugin's data folder.
+</Info>
+
+## Plugin Lifecycle
+
+<Steps>
+  <Step title="Discovery">
+    Plugins are discovered when the PluginManager scans the plugins directory during server startup.
+  </Step>
+  
+  <Step title="Loading">
+    Compatible and enabled plugins are loaded into `AssemblyLoadContext` instances.
+  </Step>
+  
+  <Step title="Service Registration">
+    Plugins implementing `IPluginServiceRegistrator` register their services with the DI container.
+  </Step>
+  
+  <Step title="Initialization">
+    Plugin constructors are called, and singletons are instantiated.
+  </Step>
+  
+  <Step title="Runtime">
+    Plugins respond to events and provide functionality as requested by the server.
+  </Step>
+  
+  <Step title="Uninstallation">
+    When uninstalling, `OnUninstalling()` is called for cleanup:
+    
+    ```csharp
+    public override void OnUninstalling()
+    {
+        // Clean up resources
+        _httpClient?.Dispose();
+        
+        // Remove cached data
+        if (Directory.Exists(DataFolderPath))
+        {
+            Directory.Delete(DataFolderPath, recursive: true);
+        }
+    }
+    ```
+  </Step>
+</Steps>
+
+## Plugin Repository
+
+Official plugins are distributed through the Jellyfin plugin repository:
+
+```json manifest.json
+{
+  "guid": "a4df60c5-6ab4-412a-8f79-2cab93fb2bc5",
+  "name": "My Custom Plugin",
+  "description": "Provides custom functionality",
+  "overview": "Extended description of the plugin",
+  "owner": "jellyfin",
+  "category": "Metadata",
+  "versions": [
+    {
+      "version": "1.0.0",
+      "changelog": "Initial release",
+      "targetAbi": "10.8.0.0",
+      "sourceUrl": "https://repo.jellyfin.org/releases/plugin/my-plugin/my-plugin_1.0.0.zip",
+      "checksum": "sha256:...",
+      "timestamp": "2023-01-15T00:00:00Z"
+    }
+  ]
+}
+```
+
+## Official Plugins
+
+Jellyfin provides several official plugins:
+
+<CardGroup cols={2}>
+  <Card title="TMDb" icon="film">
+    Metadata provider for movies and TV shows from The Movie Database
+  </Card>
+  <Card title="LDAP Authentication" icon="key">
+    Authenticate users against LDAP/Active Directory
+  </Card>
+  <Card title="Trakt" icon="heart">
+    Sync playback progress and ratings with Trakt.tv
+  </Card>
+  <Card title="AniDB" icon="dragon">
+    Anime metadata from AniDB
+  </Card>
+  <Card title="Bookshelf" icon="book">
+    E-book and audiobook management
+  </Card>
+  <Card title="Webhook" icon="bell">
+    Send webhooks on server events
+  </Card>
+  <Card title="Reports" icon="chart-bar">
+    Generate usage and library reports
+  </Card>
+  <Card title="Slack Notifications" icon="comment">
+    Send notifications to Slack
+  </Card>
+</CardGroup>
+
+## Plugin Development Best Practices
+
+<Tabs>
+  <Tab title="Versioning">
+    - Use semantic versioning (MAJOR.MINOR.PATCH)
+    - Specify `targetAbi` for compatibility checking
+    - Document breaking changes in changelogs
+    - Test against multiple Jellyfin versions
+  </Tab>
+  
+  <Tab title="Error Handling">
+    ```csharp
+    public async Task<MetadataResult<Movie>> GetMetadata(
+        MovieInfo info,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var metadata = await FetchMetadataAsync(info, cancellationToken);
+            return new MetadataResult<Movie>
+            {
+                Item = metadata,
+                HasMetadata = true
+            };
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "Failed to fetch metadata from provider");
+            return new MetadataResult<Movie>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error in metadata provider");
+            throw;
+        }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Performance">
+    - Use async/await for I/O operations
+    - Implement caching for expensive operations
+    - Respect cancellation tokens
+    - Avoid blocking the thread pool
+    
+    ```csharp
+    private readonly IMemoryCache _cache;
+    
+    public async Task<MovieInfo> GetMovieInfo(
+        string id,
+        CancellationToken cancellationToken)
+    {
+        var cacheKey = $"movie_{id}";
+        
+        if (_cache.TryGetValue(cacheKey, out MovieInfo? cached))
+        {
+            return cached!;
+        }
+        
+        var info = await FetchMovieInfoAsync(id, cancellationToken);
+        
+        _cache.Set(cacheKey, info, TimeSpan.FromHours(1));
+        
+        return info;
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Logging">
+    ```csharp
+    private readonly ILogger<MyPlugin> _logger;
+    
+    public MyPlugin(ILogger<MyPlugin> logger)
+    {
+        _logger = logger;
+    }
+    
+    public void ProcessItem(BaseItem item)
+    {
+        _logger.LogDebug("Processing item: {ItemName}", item.Name);
+        
+        try
+        {
+            // Process item
+            _logger.LogInformation(
+                "Successfully processed {ItemName}", item.Name);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex, 
+                "Failed to process {ItemName}", 
+                item.Name);
+        }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+<Warning>
+  Plugins run in the same process as Jellyfin Server. Bugs or crashes in plugins can affect server stability.
+</Warning>
+
+## Testing Plugins
+
+```csharp
+using Xunit;
+using Moq;
+
+public class PluginTests
+{
+    [Fact]
+    public async Task GetMetadata_ValidMovie_ReturnsMetadata()
+    {
+        // Arrange
+        var provider = new MyMetadataProvider();
+        var movieInfo = new MovieInfo { Name = "Test Movie" };
+        
+        // Act
+        var result = await provider.GetMetadata(
+            movieInfo, 
+            CancellationToken.None);
+        
+        // Assert
+        Assert.True(result.HasMetadata);
+        Assert.NotNull(result.Item);
+        Assert.Equal("Test Movie", result.Item.Name);
+    }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture" icon="sitemap" href="/concepts/architecture">
+    Understand how plugins fit into Jellyfin
+  </Card>
+  <Card title="Media Libraries" icon="folder-open" href="/concepts/media-libraries">
+    Learn about library management
+  </Card>
+  <Card title="Users & Authentication" icon="users" href="/concepts/users-authentication">
+    Extend authentication with plugins
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/authentication/overview">
+    Build plugins using the API
+  </Card>
+</CardGroup>

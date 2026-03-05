@@ -1,0 +1,611 @@
+---
+title: Plugin Development
+description: Create plugins to extend Jellyfin Server functionality
+---
+
+Jellyfin's plugin system allows you to extend the server with custom functionality, metadata providers, and integrations.
+
+## Plugin Architecture
+
+Jellyfin plugins are .NET assemblies that implement the plugin interface and can:
+
+- Add metadata providers (movies, TV shows, music)
+- Implement custom authentication providers
+- Add new API endpoints
+- React to server events
+- Provide custom configuration pages
+- Extend media scanning and organization
+
+### Plugin Structure
+
+Plugins are located in the `plugins/` directory within the Jellyfin data folder and follow this structure:
+
+```
+plugins/
+├── MyPlugin/
+│   ├── MyPlugin.dll          # Main plugin assembly
+│   ├── meta.json             # Plugin manifest
+│   ├── configuration.xml     # Plugin configuration
+│   └── thumb.jpg             # Plugin icon (optional)
+```
+
+## Creating a Plugin
+
+<Steps>
+  <Step title="Create a New .NET Project">
+    Create a new class library targeting .NET 9.0:
+    
+    ```bash
+    dotnet new classlib -n Jellyfin.Plugin.MyPlugin -f net9.0
+    cd Jellyfin.Plugin.MyPlugin
+    ```
+  </Step>
+  
+  <Step title="Add Jellyfin Dependencies">
+    Add references to Jellyfin packages:
+    
+    ```xml MyPlugin.csproj
+    <Project Sdk="Microsoft.NET.Sdk">
+      <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <AssemblyName>Jellyfin.Plugin.MyPlugin</AssemblyName>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+      </PropertyGroup>
+      
+      <ItemGroup>
+        <PackageReference Include="Jellyfin.Controller" Version="10.*" />
+        <PackageReference Include="Jellyfin.Model" Version="10.*" />
+      </ItemGroup>
+    </Project>
+    ```
+    
+    <Note>
+      Check the [Jellyfin NuGet feed](https://www.nuget.org/packages?q=jellyfin) for the latest package versions.
+    </Note>
+  </Step>
+  
+  <Step title="Implement the Plugin Class">
+    Create your main plugin class by inheriting from `BasePlugin`:
+    
+    ```csharp Plugin.cs
+    using System;
+    using MediaBrowser.Common.Configuration;
+    using MediaBrowser.Common.Plugins;
+    using MediaBrowser.Model.Plugins;
+    using MediaBrowser.Model.Serialization;
+    
+    namespace Jellyfin.Plugin.MyPlugin
+    {
+        public class Plugin : BasePlugin<PluginConfiguration>
+        {
+            public Plugin(
+                IApplicationPaths applicationPaths,
+                IXmlSerializer xmlSerializer)
+                : base(applicationPaths, xmlSerializer)
+            {
+                Instance = this;
+            }
+            
+            public static Plugin Instance { get; private set; }
+            
+            public override Guid Id => Guid.Parse("12345678-1234-1234-1234-123456789012");
+            
+            public override string Name => "My Plugin";
+            
+            public override string Description => "Does something awesome with Jellyfin";
+        }
+    }
+    ```
+    
+    <Warning>
+      Generate a unique GUID for your plugin. Never reuse GUIDs from other plugins.
+    </Warning>
+  </Step>
+  
+  <Step title="Create Plugin Configuration">
+    Define your plugin's configuration class:
+    
+    ```csharp PluginConfiguration.cs
+    using MediaBrowser.Model.Plugins;
+    
+    namespace Jellyfin.Plugin.MyPlugin
+    {
+        public class PluginConfiguration : BasePluginConfiguration
+        {
+            public string ApiKey { get; set; } = string.Empty;
+            
+            public bool EnableFeature { get; set; } = true;
+            
+            public int MaxResults { get; set; } = 10;
+        }
+    }
+    ```
+  </Step>
+  
+  <Step title="Build Your Plugin">
+    ```bash
+    dotnet build --configuration Release
+    ```
+  </Step>
+</Steps>
+
+## Plugin Interface Reference
+
+All plugins must implement the `IPlugin` interface defined in `MediaBrowser.Common/Plugins/IPlugin.cs`:
+
+```csharp IPlugin Interface
+public interface IPlugin
+{
+    string Name { get; }                    // Plugin display name
+    string Description { get; }              // Plugin description
+    Guid Id { get; }                        // Unique plugin identifier
+    Version Version { get; }                 // Plugin version
+    string AssemblyFilePath { get; }        // Path to plugin DLL
+    bool CanUninstall { get; }              // Whether plugin can be removed
+    string DataFolderPath { get; }          // Plugin data storage path
+    
+    PluginInfo GetPluginInfo();             // Returns plugin metadata
+    void OnUninstalling();                   // Called before uninstall
+}
+```
+
+### BasePlugin Class
+
+The `BasePlugin<TConfigurationType>` class (from `MediaBrowser.Common/Plugins/BasePlugin.cs`) provides:
+
+- **Configuration Management**: Automatic XML serialization/deserialization
+- **Data Folder Access**: Isolated storage for plugin data
+- **Lifecycle Hooks**: `OnUninstalling()` method
+- **Plugin Info**: Automatic `PluginInfo` generation
+
+<Tip>
+  Inherit from `BasePlugin<TConfigurationType>` rather than implementing `IPlugin` directly.
+</Tip>
+
+## Example: TMDb Metadata Plugin
+
+Here's how the built-in TMDb plugin is structured (see `MediaBrowser.Providers/Plugins/Tmdb/Plugin.cs`):
+
+```csharp TMDb Plugin Example
+using System;
+using System.Collections.Generic;
+using MediaBrowser.Common.Configuration;
+using MediaBrowser.Common.Plugins;
+using MediaBrowser.Model.Plugins;
+using MediaBrowser.Model.Serialization;
+
+namespace MediaBrowser.Providers.Plugins.Tmdb
+{
+    public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
+    {
+        public Plugin(
+            IApplicationPaths applicationPaths,
+            IXmlSerializer xmlSerializer)
+            : base(applicationPaths, xmlSerializer)
+        {
+            Instance = this;
+        }
+        
+        public static Plugin Instance { get; private set; }
+        
+        public override Guid Id => new Guid("b8715ed1-6c47-4528-9ad3-f72deb539cd4");
+        
+        public override string Name => "TMDb";
+        
+        public override string Description => "Get metadata for movies and other video content from TheMovieDb.";
+        
+        public override string ConfigurationFileName => "Jellyfin.Plugin.Tmdb.xml";
+        
+        // Provide configuration page
+        public IEnumerable<PluginPageInfo> GetPages()
+        {
+            yield return new PluginPageInfo
+            {
+                Name = Name,
+                EmbeddedResourcePath = GetType().Namespace + ".Configuration.config.html"
+            };
+        }
+    }
+}
+```
+
+## Adding Configuration Pages
+
+Implement `IHasWebPages` to provide a web-based configuration UI:
+
+<Steps>
+  <Step title="Implement IHasWebPages">
+    ```csharp
+    public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
+    {
+        public IEnumerable<PluginPageInfo> GetPages()
+        {
+            yield return new PluginPageInfo
+            {
+                Name = "My Plugin Config",
+                EmbeddedResourcePath = GetType().Namespace + ".Configuration.config.html"
+            };
+        }
+    }
+    ```
+  </Step>
+  
+  <Step title="Create Configuration HTML">
+    Add an HTML file as an embedded resource:
+    
+    ```html Configuration/config.html
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>My Plugin Configuration</title>
+    </head>
+    <body>
+        <div data-role="page" class="page type-interior pluginConfigurationPage">
+            <div data-role="content">
+                <form class="pluginConfigurationForm">
+                    <label for="txtApiKey">API Key:</label>
+                    <input type="text" id="txtApiKey" name="ApiKey" />
+                    
+                    <label>
+                        <input type="checkbox" id="chkEnableFeature" name="EnableFeature" />
+                        Enable Feature
+                    </label>
+                    
+                    <button type="submit">Save</button>
+                </form>
+            </div>
+        </div>
+        
+        <script type="text/javascript">
+            $('.pluginConfigurationForm').on('submit', function(e) {
+                e.preventDefault();
+                ApiClient.getPluginConfiguration(PluginConfig.pluginId).then(function(config) {
+                    config.ApiKey = $('#txtApiKey').val();
+                    config.EnableFeature = $('#chkEnableFeature').is(':checked');
+                    ApiClient.updatePluginConfiguration(PluginConfig.pluginId, config);
+                });
+            });
+        </script>
+    </body>
+    </html>
+    ```
+  </Step>
+  
+  <Step title="Embed the Resource">
+    Update your `.csproj` file:
+    
+    ```xml
+    <ItemGroup>
+      <EmbeddedResource Include="Configuration\\config.html" />
+    </ItemGroup>
+    ```
+  </Step>
+</Steps>
+
+## Plugin API Management
+
+The Plugin API is managed through the `PluginsController` (see `Jellyfin.Api/Controllers/PluginsController.cs`):
+
+### Available Endpoints
+
+<Tabs>
+  <Tab title="List Plugins">
+    ```http
+    GET /Plugins
+    ```
+    
+    Returns all installed plugins sorted by name.
+  </Tab>
+  
+  <Tab title="Get Configuration">
+    ```http
+    GET /Plugins/{pluginId}/Configuration
+    ```
+    
+    Retrieves the current plugin configuration.
+  </Tab>
+  
+  <Tab title="Update Configuration">
+    ```http
+    POST /Plugins/{pluginId}/Configuration
+    Content-Type: application/json
+    
+    {
+      "ApiKey": "new-key",
+      "EnableFeature": true
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Enable/Disable">
+    ```http
+    POST /Plugins/{pluginId}/{version}/Enable
+    POST /Plugins/{pluginId}/{version}/Disable
+    ```
+  </Tab>
+  
+  <Tab title="Uninstall">
+    ```http
+    DELETE /Plugins/{pluginId}/{version}
+    ```
+  </Tab>
+</Tabs>
+
+## Advanced Plugin Features
+
+### Implementing Metadata Providers
+
+Create custom metadata providers for movies, TV shows, or music:
+
+```csharp
+using MediaBrowser.Controller.Entities.Movies;
+using MediaBrowser.Controller.Providers;
+using MediaBrowser.Model.Entities;
+
+public class MyMetadataProvider : IRemoteMetadataProvider<Movie, MovieInfo>
+{
+    public string Name => "My Metadata Provider";
+    
+    public async Task<MetadataResult<Movie>> GetMetadata(
+        MovieInfo info,
+        CancellationToken cancellationToken)
+    {
+        var result = new MetadataResult<Movie>();
+        
+        // Fetch metadata from your source
+        result.Item = new Movie
+        {
+            Name = "Movie Title",
+            Overview = "Movie description",
+            ProductionYear = 2024
+        };
+        
+        result.HasMetadata = true;
+        return result;
+    }
+    
+    public Task<IEnumerable<RemoteSearchResult>> GetSearchResults(
+        MovieInfo searchInfo,
+        CancellationToken cancellationToken)
+    {
+        // Return search results
+        return Task.FromResult(Enumerable.Empty<RemoteSearchResult>());
+    }
+}
+```
+
+### Reacting to Server Events
+
+Subscribe to server events using dependency injection:
+
+```csharp
+using MediaBrowser.Controller.Library;
+using MediaBrowser.Controller.Plugins;
+
+public class MyServerEntryPoint : IServerEntryPoint
+{
+    private readonly ILibraryManager _libraryManager;
+    
+    public MyServerEntryPoint(ILibraryManager libraryManager)
+    {
+        _libraryManager = libraryManager;
+    }
+    
+    public Task RunAsync()
+    {
+        // Subscribe to events
+        _libraryManager.ItemAdded += OnItemAdded;
+        _libraryManager.ItemUpdated += OnItemUpdated;
+        return Task.CompletedTask;
+    }
+    
+    private void OnItemAdded(object sender, ItemChangeEventArgs e)
+    {
+        // Handle new items
+    }
+    
+    private void OnItemUpdated(object sender, ItemChangeEventArgs e)
+    {
+        // Handle updated items
+    }
+    
+    public void Dispose()
+    {
+        _libraryManager.ItemAdded -= OnItemAdded;
+        _libraryManager.ItemUpdated -= OnItemUpdated;
+    }
+}
+```
+
+### Adding Scheduled Tasks
+
+```csharp
+using MediaBrowser.Controller.Library;
+using MediaBrowser.Model.Tasks;
+
+public class MyScheduledTask : IScheduledTask
+{
+    public string Name => "My Scheduled Task";
+    
+    public string Description => "Runs periodically to do something";
+    
+    public string Category => "Maintenance";
+    
+    public string Key => "MyPluginScheduledTask";
+    
+    public async Task ExecuteAsync(IProgress<double> progress, CancellationToken cancellationToken)
+    {
+        // Perform task
+        progress.Report(50);
+        await Task.Delay(1000, cancellationToken);
+        progress.Report(100);
+    }
+    
+    public IEnumerable<TaskTriggerInfo> GetDefaultTriggers()
+    {
+        return new[]
+        {
+            new TaskTriggerInfo
+            {
+                Type = TaskTriggerInfo.TriggerDaily,
+                TimeOfDayTicks = TimeSpan.FromHours(2).Ticks
+            }
+        };
+    }
+}
+```
+
+## Installing Your Plugin
+
+<Tabs>
+  <Tab title="Manual Installation">
+    1. Build your plugin in Release mode:
+       ```bash
+       dotnet build --configuration Release
+       ```
+    
+    2. Copy the DLL to the plugins folder:
+       ```bash
+       cp bin/Release/net9.0/Jellyfin.Plugin.MyPlugin.dll \
+          /path/to/jellyfin/data/plugins/MyPlugin/
+       ```
+    
+    3. Restart Jellyfin Server
+  </Tab>
+  
+  <Tab title="Via Plugin Repository">
+    To make your plugin installable from the Jellyfin catalog:
+    
+    1. Create a plugin repository manifest
+    2. Host your plugin DLL and manifest JSON
+    3. Submit to the [Jellyfin Plugin Repository](https://github.com/jellyfin/jellyfin-plugin-repository)
+    
+    See the [Plugin Repository Guide](https://github.com/jellyfin/jellyfin-plugin-repository#adding-a-new-plugin) for details.
+  </Tab>
+  
+  <Tab title="Development Mode">
+    For development, use a symlink or direct copy:
+    
+    ```bash
+    # Create symlink (Linux/macOS)
+    ln -s $(pwd)/bin/Debug/net9.0/Jellyfin.Plugin.MyPlugin.dll \
+          /path/to/jellyfin/data/plugins/MyPlugin/
+    ```
+    
+    <Note>
+      You'll need to restart Jellyfin after each rebuild.
+    </Note>
+  </Tab>
+</Tabs>
+
+## Debugging Plugins
+
+<Steps>
+  <Step title="Build with Debug Symbols">
+    ```bash
+    dotnet build --configuration Debug
+    ```
+  </Step>
+  
+  <Step title="Attach Debugger">
+    In Visual Studio or VS Code, attach to the running Jellyfin process.
+    
+    **VS Code launch.json:**
+    ```json
+    {
+      "name": "Attach to Jellyfin",
+      "type": "coreclr",
+      "request": "attach",
+      "processName": "jellyfin"
+    }
+    ```
+  </Step>
+  
+  <Step title="Set Breakpoints">
+    Set breakpoints in your plugin code and trigger the functionality.
+  </Step>
+</Steps>
+
+<Tip>
+  Enable verbose logging in Jellyfin to see plugin initialization messages and errors.
+</Tip>
+
+## Plugin Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Handle Errors Gracefully" icon="shield">
+    Always catch and log exceptions. Don't crash the server with unhandled exceptions.
+  </Card>
+  
+  <Card title="Use Dependency Injection" icon="plug">
+    Request dependencies through constructor injection rather than creating instances directly.
+  </Card>
+  
+  <Card title="Implement IDisposable" icon="trash">
+    Clean up resources (event handlers, file handles, connections) when your plugin is unloaded.
+  </Card>
+  
+  <Card title="Version Your Plugin" icon="code-branch">
+    Use semantic versioning and test compatibility with different Jellyfin versions.
+  </Card>
+  
+  <Card title="Document Configuration" icon="book">
+    Provide clear descriptions for all configuration options in your UI.
+  </Card>
+  
+  <Card title="Respect Cancellation Tokens" icon="stop">
+    Honor `CancellationToken` parameters to allow graceful task cancellation.
+  </Card>
+</CardGroup>
+
+## Plugin Examples
+
+Study these built-in plugins in the Jellyfin source:
+
+- **TMDb Plugin**: `MediaBrowser.Providers/Plugins/Tmdb/` - Metadata provider
+- **MusicBrainz Plugin**: `MediaBrowser.Providers/Plugins/MusicBrainz/` - Music metadata
+- **Studio Images Plugin**: `MediaBrowser.Providers/Plugins/StudioImages/` - Image provider
+- **AudioDB Plugin**: `MediaBrowser.Providers/Plugins/AudioDb/` - Audio metadata
+
+## Testing Your Plugin
+
+Create unit tests for your plugin:
+
+```csharp
+using Xunit;
+
+public class PluginTests
+{
+    [Fact]
+    public void Plugin_HasCorrectId()
+    {
+        var plugin = new Plugin(null, null);
+        Assert.NotEqual(Guid.Empty, plugin.Id);
+    }
+    
+    [Fact]
+    public void Configuration_DefaultValues()
+    {
+        var config = new PluginConfiguration();
+        Assert.True(config.EnableFeature);
+        Assert.Equal(10, config.MaxResults);
+    }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Overview" icon="code" href="./api-overview">
+    Learn about the Jellyfin API your plugin can use
+  </Card>
+  <Card title="Contributing Guide" icon="users" href="./contributing">
+    Submit your plugin to the official repository
+  </Card>
+  <Card title="Building from Source" icon="hammer" href="./building-from-source">
+    Set up a development environment
+  </Card>
+  <Card title="Plugin Repository" icon="box" href="https://github.com/jellyfin/jellyfin-plugin-repository">
+    Browse existing plugins and submission guidelines
+  </Card>
+</CardGroup>

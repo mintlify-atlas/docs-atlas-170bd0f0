@@ -1,0 +1,340 @@
+---
+title: "Authentication Overview"
+description: "Learn how to authenticate with Jellyfin Server using user credentials or API keys"
+---
+
+## Authentication System
+
+Jellyfin Server provides two primary authentication methods:
+
+1. **User Authentication** - Username/password authentication that creates a session with an access token
+2. **API Key Authentication** - Persistent tokens for programmatic access without user credentials
+
+## How Authentication Works
+
+Jellyfin uses a token-based authentication system. After successful authentication, you receive an access token that must be included in subsequent API requests.
+
+### Authentication Flow
+
+1. Authenticate using username/password or API key
+2. Receive an access token in the response
+3. Include the token in the `Authorization` header or query parameter for subsequent requests
+4. Token remains valid until explicitly logged out or revoked
+
+## User Authentication
+
+### Authenticate by Username
+
+Authenticate a user with their username and password to create a new session.
+
+<CodeGroup>
+```bash cURL
+curl -X POST "http://localhost:8096/Users/AuthenticateByName" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: MediaBrowser Client=\"MyApp\", Device=\"MyDevice\", DeviceId=\"unique-device-id\", Version=\"1.0.0\"" \
+  -d '{
+    "Username": "admin",
+    "Pw": "password123"
+  }'
+```
+
+```javascript JavaScript
+const response = await fetch('http://localhost:8096/Users/AuthenticateByName', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': 'MediaBrowser Client="MyApp", Device="MyDevice", DeviceId="unique-device-id", Version="1.0.0"'
+  },
+  body: JSON.stringify({
+    Username: 'admin',
+    Pw: 'password123'
+  })
+});
+
+const auth = await response.json();
+console.log('Access Token:', auth.AccessToken);
+```
+
+```python Python
+import requests
+
+headers = {
+    'Content-Type': 'application/json',
+    'Authorization': 'MediaBrowser Client="MyApp", Device="MyDevice", DeviceId="unique-device-id", Version="1.0.0"'
+}
+
+data = {
+    'Username': 'admin',
+    'Pw': 'password123'
+}
+
+response = requests.post(
+    'http://localhost:8096/Users/AuthenticateByName',
+    headers=headers,
+    json=data
+)
+
+auth = response.json()
+print(f"Access Token: {auth['AccessToken']}")
+```
+</CodeGroup>
+
+<ParamField path="/Users/AuthenticateByName" type="POST">
+  Authenticates a user by username and password
+</ParamField>
+
+<ParamField body="Username" type="string" required>
+  The username of the user account
+</ParamField>
+
+<ParamField body="Pw" type="string" required>
+  The plain text password for the user
+</ParamField>
+
+<ParamField header="Authorization" type="string" required>
+  Client information in MediaBrowser format: `MediaBrowser Client="AppName", Device="DeviceName", DeviceId="unique-id", Version="1.0.0"`
+</ParamField>
+
+<ResponseField name="User" type="object">
+  User information object
+  <Expandable title="properties">
+    <ResponseField name="Name" type="string">
+      Username
+    </ResponseField>
+    <ResponseField name="Id" type="string">
+      User ID (GUID)
+    </ResponseField>
+    <ResponseField name="HasPassword" type="boolean">
+      Whether the user has a password set
+    </ResponseField>
+    <ResponseField name="HasConfiguredPassword" type="boolean">
+      Whether the user has configured their password
+    </ResponseField>
+    <ResponseField name="HasConfiguredEasyPassword" type="boolean">
+      Whether the user has configured an easy password
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="SessionInfo" type="object">
+  Session information
+  <Expandable title="properties">
+    <ResponseField name="Id" type="string">
+      Session ID
+    </ResponseField>
+    <ResponseField name="UserId" type="string">
+      User ID associated with the session
+    </ResponseField>
+    <ResponseField name="UserName" type="string">
+      Username
+    </ResponseField>
+    <ResponseField name="Client" type="string">
+      Client application name
+    </ResponseField>
+    <ResponseField name="DeviceId" type="string">
+      Unique device identifier
+    </ResponseField>
+    <ResponseField name="DeviceName" type="string">
+      Device name
+    </ResponseField>
+    <ResponseField name="ApplicationVersion" type="string">
+      Client application version
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="AccessToken" type="string">
+  Access token for authenticated requests
+</ResponseField>
+
+<ResponseField name="ServerId" type="string">
+  Server ID
+</ResponseField>
+
+### Response Example
+
+```json
+{
+  "User": {
+    "Name": "admin",
+    "Id": "6eec632a-ff0d-4d09-aad0-bf9e90b14bc6",
+    "HasPassword": true,
+    "HasConfiguredPassword": true,
+    "HasConfiguredEasyPassword": false
+  },
+  "SessionInfo": {
+    "Id": "a1b2c3d4e5f6",
+    "UserId": "6eec632a-ff0d-4d09-aad0-bf9e90b14bc6",
+    "UserName": "admin",
+    "Client": "MyApp",
+    "DeviceId": "unique-device-id",
+    "DeviceName": "MyDevice",
+    "ApplicationVersion": "1.0.0"
+  },
+  "AccessToken": "e8a7b6c5d4f3a2b1c0d9e8f7a6b5c4d3",
+  "ServerId": "abc123def456"
+}
+```
+
+## Using Access Tokens
+
+Once authenticated, include the access token in all subsequent requests using one of these methods:
+
+### Method 1: Authorization Header (Recommended)
+
+```bash
+curl "http://localhost:8096/Users/Me" \
+  -H "Authorization: MediaBrowser Client=\"MyApp\", Device=\"MyDevice\", DeviceId=\"unique-device-id\", Version=\"1.0.0\", Token=\"YOUR_ACCESS_TOKEN\""
+```
+
+### Method 2: Query Parameter
+
+```bash
+curl "http://localhost:8096/Users/Me?ApiKey=YOUR_ACCESS_TOKEN"
+```
+
+### Method 3: Legacy Headers (if enabled)
+
+```bash
+# X-Emby-Token header (legacy)
+curl "http://localhost:8096/Users/Me" \
+  -H "X-Emby-Token: YOUR_ACCESS_TOKEN"
+
+# X-MediaBrowser-Token header (legacy)
+curl "http://localhost:8096/Users/Me" \
+  -H "X-MediaBrowser-Token: YOUR_ACCESS_TOKEN"
+```
+
+<Info>
+  Legacy authorization methods (X-Emby-Token, X-MediaBrowser-Token, api_key parameter) may be disabled in server configuration. Use the standard Authorization header for best compatibility.
+</Info>
+
+## Token Management
+
+### Logout
+
+End the current session and invalidate the access token.
+
+```bash cURL
+curl -X POST "http://localhost:8096/Sessions/Logout" \
+  -H "Authorization: MediaBrowser Token=\"YOUR_ACCESS_TOKEN\""
+```
+
+<ParamField path="/Sessions/Logout" type="POST">
+  Ends the current session
+</ParamField>
+
+<ParamField header="Authorization" type="string" required>
+  Must include the Token to be invalidated
+</ParamField>
+
+**Response:** `204 No Content`
+
+### Get Current User
+
+Retrieve information about the authenticated user.
+
+```bash cURL
+curl "http://localhost:8096/Users/Me" \
+  -H "Authorization: MediaBrowser Token=\"YOUR_ACCESS_TOKEN\""
+```
+
+## API Key Authentication
+
+API keys provide persistent authentication without requiring user credentials. They are ideal for:
+
+- Server-to-server communication
+- Long-running background services
+- Administrative automation
+- Third-party integrations
+
+<Warning>
+  API keys have administrator-level privileges. Store them securely and never expose them in client-side code or version control.
+</Warning>
+
+### Using API Keys
+
+API keys can be used the same way as user access tokens:
+
+```bash
+# In Authorization header
+curl "http://localhost:8096/System/Info" \
+  -H "Authorization: MediaBrowser Token=\"YOUR_API_KEY\""
+
+# As query parameter
+curl "http://localhost:8096/System/Info?ApiKey=YOUR_API_KEY"
+```
+
+### API Key vs User Token
+
+| Feature | User Token | API Key |
+|---------|------------|----------|
+| **Duration** | Session-based (until logout) | Persistent (until manually revoked) |
+| **Permissions** | User's permissions | Administrator privileges |
+| **Use Case** | User-facing applications | Server automation, integrations |
+| **Creation** | Login endpoint | Admin panel or API |
+| **Device Info** | Required on authentication | Not required |
+
+For detailed information on managing API keys, see the [API Keys](/api/authentication/api-keys) documentation.
+
+## Authentication Policies
+
+Jellyfin implements several authorization policies that control access to different endpoints:
+
+- **RequiresElevation** - Requires administrator privileges
+- **IgnoreParentalControl** - Bypasses parental control restrictions
+- **LocalAccessOrRequiresElevation** - Allows local network access or requires admin
+- **FirstTimeSetup** - Only accessible during initial setup
+- **AnonymousLanAccess** - Allows anonymous access from local network
+
+## Error Responses
+
+### 401 Unauthorized
+
+Returned when authentication fails or token is invalid.
+
+```json
+{
+  "error": "Invalid token."
+}
+```
+
+### 403 Forbidden
+
+Returned when the user lacks required permissions.
+
+```json
+{
+  "error": "User account has been disabled."
+}
+```
+
+### 404 Not Found
+
+Returned when the user doesn't exist.
+
+```json
+{
+  "error": "User not found"
+}
+```
+
+## Security Best Practices
+
+1. **Use HTTPS** - Always use HTTPS in production to protect tokens in transit
+2. **Secure Storage** - Store tokens securely (encrypted storage, secure cookies, environment variables)
+3. **Token Rotation** - Implement token refresh mechanisms for long-lived applications
+4. **Least Privilege** - Use user tokens with appropriate permissions instead of API keys when possible
+5. **Revoke Unused Tokens** - Regularly audit and revoke unused API keys and sessions
+6. **Client Information** - Always provide accurate client information in the Authorization header
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Keys" icon="key" href="/api/authentication/api-keys">
+    Create and manage persistent API keys
+  </Card>
+  <Card title="User Management" icon="users" href="/api/users/overview">
+    Manage user accounts and permissions
+  </Card>
+</CardGroup>

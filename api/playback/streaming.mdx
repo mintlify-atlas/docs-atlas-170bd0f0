@@ -1,0 +1,335 @@
+---
+title: "Streaming"
+description: "Direct play and streaming endpoints for audio and video content"
+---
+
+## Overview
+
+The Streaming API provides endpoints for direct playback of audio and video content. These endpoints support both static streaming (direct file access) and dynamic transcoding based on client capabilities.
+
+## Audio Stream
+
+Stream audio content with optional transcoding.
+
+### Get Audio Stream
+
+<CodeGroup>
+```http
+GET /Audio/{itemId}/stream
+GET /Audio/{itemId}/stream.{container}
+```
+</CodeGroup>
+
+**Authentication:** Required
+
+<ParamField path="itemId" type="string" required>
+  The unique identifier of the audio item
+</ParamField>
+
+<ParamField path="container" type="string">
+  The audio container format (e.g., mp3, aac, flac, opus)
+</ParamField>
+
+<ParamField query="static" type="boolean" default="false">
+  If true, streams the original file without encoding. Use either no extension or the original file extension
+</ParamField>
+
+<ParamField query="mediaSourceId" type="string">
+  The media version id, if playing an alternate version
+</ParamField>
+
+<ParamField query="deviceId" type="string">
+  The device id of the client requesting. Used to stop encoding processes when needed
+</ParamField>
+
+<ParamField query="audioCodec" type="string">
+  Specify an audio codec to encode to (e.g., mp3, aac, opus). If omitted, the server will auto-select using the URL's extension
+</ParamField>
+
+<ParamField query="audioBitRate" type="integer">
+  Specify an audio bitrate to encode to (e.g., 128000). If omitted, this will be left to encoder defaults
+</ParamField>
+
+<ParamField query="audioChannels" type="integer">
+  Specify a specific number of audio channels to encode to (e.g., 2)
+</ParamField>
+
+<ParamField query="maxAudioChannels" type="integer">
+  Specify a maximum number of audio channels to encode to (e.g., 2)
+</ParamField>
+
+<ParamField query="audioSampleRate" type="integer">
+  Specify a specific audio sample rate (e.g., 44100)
+</ParamField>
+
+<ParamField query="maxAudioBitDepth" type="integer">
+  The maximum audio bit depth
+</ParamField>
+
+<ParamField query="startTimeTicks" type="integer">
+  Specify a starting offset, in ticks. 1 tick = 10000 ms (0.01ms)
+</ParamField>
+
+<ParamField query="enableAutoStreamCopy" type="boolean" default="true">
+  Whether to allow automatic stream copy if requested values match the original source
+</ParamField>
+
+<ParamField query="allowAudioStreamCopy" type="boolean" default="true">
+  Whether to allow copying of the audio stream URL
+</ParamField>
+
+<ParamField query="enableAudioVbrEncoding" type="boolean" default="true">
+  Whether to enable Audio VBR (Variable Bit Rate) Encoding
+</ParamField>
+
+<ResponseField name="Stream" type="binary">
+  Audio file stream with appropriate MIME type
+</ResponseField>
+
+**Response Codes:**
+- `200 OK` - Audio stream returned successfully
+- `401 Unauthorized` - Authentication required
+- `404 Not Found` - Item not found
+
+#### Example Request
+
+```bash
+curl -X GET "https://your-jellyfin-server/Audio/12345678-1234-1234-1234-123456789abc/stream.mp3?audioBitRate=128000&audioChannels=2" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+---
+
+## Video Stream
+
+Stream video content with optional transcoding.
+
+### Get Video Stream
+
+<CodeGroup>
+```http
+GET /Videos/{itemId}/stream
+GET /Videos/{itemId}/stream.{container}
+```
+</CodeGroup>
+
+**Authentication:** Required
+
+<ParamField path="itemId" type="string" required>
+  The unique identifier of the video item
+</ParamField>
+
+<ParamField path="container" type="string">
+  The video container. Possible values: ts, webm, asf, wmv, ogv, mp4, m4v, mkv, mpeg, mpg, avi, 3gp, wtv, m2ts, mov, iso, flv
+</ParamField>
+
+<ParamField query="static" type="boolean" default="false">
+  If true, streams the original file without encoding
+</ParamField>
+
+<ParamField query="mediaSourceId" type="string">
+  The media version id, if playing an alternate version
+</ParamField>
+
+<ParamField query="deviceId" type="string">
+  The device id of the client requesting
+</ParamField>
+
+<ParamField query="videoCodec" type="string">
+  Specify a video codec to encode to (e.g., h264, hevc, vp9). If omitted, the server will auto-select
+</ParamField>
+
+<ParamField query="audioCodec" type="string">
+  Specify an audio codec to encode to (e.g., aac, mp3, opus)
+</ParamField>
+
+<ParamField query="videoBitRate" type="integer">
+  Specify a video bitrate to encode to (e.g., 5000000). If omitted, left to encoder defaults
+</ParamField>
+
+<ParamField query="audioBitRate" type="integer">
+  Specify an audio bitrate to encode to (e.g., 128000)
+</ParamField>
+
+<ParamField query="width" type="integer">
+  The fixed horizontal resolution of the encoded video
+</ParamField>
+
+<ParamField query="height" type="integer">
+  The fixed vertical resolution of the encoded video
+</ParamField>
+
+<ParamField query="maxWidth" type="integer">
+  The maximum horizontal resolution of the encoded video
+</ParamField>
+
+<ParamField query="maxHeight" type="integer">
+  The maximum vertical resolution of the encoded video
+</ParamField>
+
+<ParamField query="framerate" type="number">
+  A specific video framerate to encode to (e.g., 23.976). Generally should be omitted unless device has specific requirements
+</ParamField>
+
+<ParamField query="maxFramerate" type="number">
+  A specific maximum video framerate to encode to
+</ParamField>
+
+<ParamField query="startTimeTicks" type="integer">
+  Specify a starting offset, in ticks. 1 tick = 10000 ms
+</ParamField>
+
+<ParamField query="subtitleStreamIndex" type="integer">
+  The index of the subtitle stream to use. If omitted, no subtitles will be used
+</ParamField>
+
+<ParamField query="subtitleMethod" type="string">
+  Specify the subtitle delivery method: `Encode`, `Embed`, `External`, `Hls`
+</ParamField>
+
+<ResponseField name="Stream" type="binary">
+  Video file stream with appropriate MIME type
+</ResponseField>
+
+**Response Codes:**
+- `200 OK` - Video stream returned successfully
+- `400 Bad Request` - Invalid parameters or unsupported protocol
+- `401 Unauthorized` - Authentication required
+- `404 Not Found` - Item not found
+
+#### Example Request
+
+```bash
+curl -X GET "https://your-jellyfin-server/Videos/12345678-1234-1234-1234-123456789abc/stream.mp4?videoBitRate=5000000&width=1920&height=1080" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+---
+
+## Universal Audio Stream
+
+Intelligent audio streaming endpoint that automatically selects the best streaming method based on device capabilities.
+
+### Get Universal Audio Stream
+
+```http
+GET /Audio/{itemId}/universal
+```
+
+**Authentication:** Required
+
+<ParamField path="itemId" type="string" required>
+  The unique identifier of the audio item
+</ParamField>
+
+<ParamField query="container" type="array">
+  Comma-delimited list of supported containers (e.g., "mp3,aac,flac")
+</ParamField>
+
+<ParamField query="mediaSourceId" type="string">
+  The media version id, if playing an alternate version
+</ParamField>
+
+<ParamField query="deviceId" type="string">
+  The device id of the client requesting
+</ParamField>
+
+<ParamField query="userId" type="string">
+  The user id (optional, defaults to authenticated user)
+</ParamField>
+
+<ParamField query="audioCodec" type="string">
+  The audio codec to transcode to
+</ParamField>
+
+<ParamField query="maxAudioChannels" type="integer">
+  The maximum number of audio channels
+</ParamField>
+
+<ParamField query="transcodingAudioChannels" type="integer">
+  The number of audio channels to transcode to
+</ParamField>
+
+<ParamField query="maxStreamingBitrate" type="integer">
+  The maximum streaming bitrate
+</ParamField>
+
+<ParamField query="audioBitRate" type="integer">
+  Specify an audio bitrate to encode to (e.g., 128000)
+</ParamField>
+
+<ParamField query="startTimeTicks" type="integer">
+  Specify a starting offset, in ticks
+</ParamField>
+
+<ParamField query="transcodingContainer" type="string">
+  The container to transcode to
+</ParamField>
+
+<ParamField query="transcodingProtocol" type="string">
+  The transcoding protocol: `http` or `hls`
+</ParamField>
+
+<ParamField query="maxAudioSampleRate" type="integer">
+  The maximum audio sample rate
+</ParamField>
+
+<ParamField query="maxAudioBitDepth" type="integer">
+  The maximum audio bit depth
+</ParamField>
+
+<ParamField query="enableRemoteMedia" type="boolean">
+  Whether to enable remote media
+</ParamField>
+
+<ParamField query="enableAudioVbrEncoding" type="boolean" default="true">
+  Whether to enable Audio VBR Encoding
+</ParamField>
+
+<ParamField query="enableRedirection" type="boolean" default="true">
+  Whether to enable redirection for remote streams
+</ParamField>
+
+**Response Codes:**
+- `200 OK` - Audio stream returned
+- `302 Found` - Redirected to remote audio stream
+- `404 Not Found` - Item not found
+
+#### Example Request
+
+```bash
+curl -X GET "https://your-jellyfin-server/Audio/12345678-1234-1234-1234-123456789abc/universal?container=mp3,aac&maxStreamingBitrate=192000" \
+  -H "Authorization: MediaBrowser Token=YOUR_API_KEY"
+```
+
+---
+
+## Notes
+
+### Ticks
+Jellyfin uses "ticks" as a time unit where 1 tick = 0.01 milliseconds = 10000 ticks per millisecond. This allows for high-precision timing.
+
+**Conversion:**
+- Milliseconds to Ticks: `milliseconds * 10000`
+- Seconds to Ticks: `seconds * 10000000`
+- Ticks to Milliseconds: `ticks / 10000`
+
+### Static vs Dynamic Streaming
+
+**Static Streaming:**
+- Serves the original file without modification
+- Requires client to support the native format
+- Lower server resource usage
+- Faster startup time
+
+**Dynamic Streaming:**
+- Transcodes content on-the-fly
+- Adapts to client capabilities and network conditions
+- Higher server resource usage
+- More compatible with diverse clients
+
+### HTTP Methods
+
+Most streaming endpoints support both:
+- `GET` - Returns the actual stream
+- `HEAD` - Returns headers only (useful for checking availability and getting metadata)

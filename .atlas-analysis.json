@@ -1,0 +1,133 @@
+{
+  "projectType": "api-service",
+  "projectName": "Jellyfin Server",
+  "projectDescription": "Free and open-source media system backend server with REST API for managing and streaming media",
+  "theme": "aspen",
+  "primaryColor": "#2594d5",
+  "lightColor": "#7f77c9",
+  "darkColor": "#f4f4f8",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/architecture",
+              "concepts/media-libraries",
+              "concepts/users-authentication",
+              "concepts/plugins"
+            ]
+          },
+          {
+            "group": "Server Setup",
+            "pages": [
+              "setup/configuration",
+              "setup/networking",
+              "setup/transcoding",
+              "setup/hardware-acceleration"
+            ]
+          },
+          {
+            "group": "Development",
+            "pages": [
+              "development/building-from-source",
+              "development/api-overview",
+              "development/plugin-development",
+              "development/contributing"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Authentication",
+            "pages": [
+              "api/authentication/overview",
+              "api/authentication/api-keys"
+            ]
+          },
+          {
+            "group": "Media Management",
+            "pages": [
+              "api/media/items",
+              "api/media/library",
+              "api/media/images",
+              "api/media/metadata"
+            ]
+          },
+          {
+            "group": "Playback",
+            "pages": [
+              "api/playback/streaming",
+              "api/playback/transcoding",
+              "api/playback/hls",
+              "api/playback/subtitles"
+            ]
+          },
+          {
+            "group": "User Management",
+            "pages": [
+              "api/users/user-endpoints",
+              "api/users/preferences",
+              "api/users/sessions"
+            ]
+          },
+          {
+            "group": "System",
+            "pages": [
+              "api/system/server-info",
+              "api/system/configuration",
+              "api/system/tasks"
+            ]
+          },
+          {
+            "group": "Live TV",
+            "pages": [
+              "api/livetv/channels",
+              "api/livetv/recordings",
+              "api/livetv/guide"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "RESTful API for media server management",
+    "Media streaming and transcoding",
+    "User authentication and authorization",
+    "Plugin system for extensibility",
+    "Live TV and DVR support",
+    "Hardware-accelerated transcoding",
+    "Multi-user library management",
+    "Metadata providers integration"
+  ],
+  "publicApiSurface": [
+    "/Items - Query and manage media items",
+    "/Library - Library management operations",
+    "/Users - User management and authentication",
+    "/System/Info - Server information endpoints",
+    "/Audio - Audio streaming endpoints",
+    "/Videos - Video streaming and transcoding",
+    "/Images - Image generation and retrieval",
+    "/Playback - Playback state management",
+    "/Sessions - Active session management",
+    "/Plugins - Plugin management",
+    "/LiveTv - Live TV functionality",
+    "/Artists - Artist information endpoints",
+    "/Search - Media search endpoints",
+    "/DisplayPreferences - User display preferences"
+  ]
+}
